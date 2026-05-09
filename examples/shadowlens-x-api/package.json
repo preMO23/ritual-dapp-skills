@@ -1,0 +1,24 @@
+{
+  "name": "shadowlens-x-api",
+  "version": "1.0.0",
+  "description": "ShadowLens X API integration with Ritual HTTP precompile",
+  "type": "module",
+  "main": "shadowlens-http-precompile.ts",
+  "scripts": {
+    "submit:testnet": "tsx example-workflow.ts",
+    "test:shadowlens": "tsx test-shadowlens.ts",
+    "listen": "tsx listener.ts",
+    "build": "tsc",
+    "dev": "tsx watch shadowlens-http-precompile.ts"
+  },
+  "dependencies": {
+    "viem": "^2.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.10.0"
+  }
+}

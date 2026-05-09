@@ -6,8 +6,10 @@ description: Persistent agent and sovereign agent patterns for Ritual dApps. Use
 # Persistent Agent & Sovereign Agent Patterns
 
 > **Runnable examples:**
+>
 > - `examples/sovereign-agent/` demonstrates direct precompile caller mode (`0x080C`) for one-shot sovereign jobs.
 > - `examples/persistent-agent/` demonstrates direct precompile caller mode (`0x0820`) for one-shot persistent spawn.
+> - `examples/contract-listener/` demonstrates an off-chain JavaScript listener for contract events using ethers.js.
 > - This skill also documents the contract-harness factory mode (recommended in production) where child harness/launcher contracts are deployed and managed through factory contracts.
 
 > **Before running either example — required user-supplied inputs (elicit these upfront):**
@@ -35,10 +37,10 @@ description: Persistent agent and sovereign agent patterns for Ritual dApps. Use
 
 Ritual Chain provides two enshrined agent primitives for on-chain AI execution:
 
-| Precompile | Address | Purpose |
-|------------|---------|---------|
+| Precompile       | Address  | Purpose                                                                                         |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------- |
 | Persistent Agent | `0x0820` | Long-lived, monitored, revivable agent instance with identity, memory, and DA-backed continuity |
-| Sovereign Agent | `0x080C` | High-powered async agent job with skills, tools, convo history, and artifact outputs |
+| Sovereign Agent  | `0x080C` | High-powered async agent job with skills, tools, convo history, and artifact outputs            |
 
 Both follow the async executor pattern: submit a request on-chain, an executor picks it up, runs the agent in a TEE, and delivers the result via callback. Phase 1 of the transaction settles synchronously — the caller's original transaction receives the job identifier as the precompile output. Phase 2 delivers the final result asynchronously via callback once the executor completes.
 
@@ -49,38 +51,50 @@ The critical product distinction is this:
 
 This distinction matters because Ritual is not just giving you "AI calls from Solidity." It is giving you chain-native primitives for both **ephemeral intelligent work** and **long-lived autonomous services**.
 
+## Off-Chain Agent Patterns
+
+For simpler agent integrations that don't require the full power of on-chain agents, consider off-chain listeners that react to contract events. The `examples/contract-listener/` demonstrates a JavaScript listener using ethers.js that monitors contract events and performs AI analysis off-chain before updating the contract state.
+
+This pattern is useful when:
+
+- You need lightweight AI responses without the overhead of TEE execution
+- The analysis can be performed synchronously or with minimal latency
+- You want to combine traditional web3 patterns with AI capabilities
+
+For more advanced use cases requiring TEE security, verifiable execution, or complex agent behaviors, use the on-chain agent precompiles described below.
+
 ### Choosing the Right Agent Precompile
 
-| Need | Precompile | Why |
-|------|------------|-----|
-| Long-lived agent with operator-facing continuity | Persistent Agent (0x0820) | The agent is treated as an ongoing monitored service, not a one-off run. |
-| Agent with identity, memory, checkpoints, and recovery | Persistent Agent (0x0820) | Built for continuity, liveness monitoring, and revival from encrypted state. |
-| Always-on product surface (assistant, manager, autonomous worker) | Persistent Agent (0x0820) | Best when users expect "my agent" to keep existing over time. |
-| Tool execution, coding tasks, scripted workflows, artifact generation | Sovereign Agent (0x080C) | Best for task-shaped agent jobs with strong harness/tool support. |
-| Rich one-shot agent execution with explicit `skills[]`, `systemPrompt`, and artifacts | Sovereign Agent (0x080C) | Designed as a high-powered async job runner. |
-| "I need the agent to remember past interactions as part of its long-lived identity" | Persistent Agent (0x0820) | State continuity is a first-class part of the primitive. |
-| "I need a coding or tool harness to do work and return" | Sovereign Agent (0x080C) | Ephemeral execution model fits this better than a spawned persistent service. |
+| Need                                                                                  | Precompile                | Why                                                                           |
+| ------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------- |
+| Long-lived agent with operator-facing continuity                                      | Persistent Agent (0x0820) | The agent is treated as an ongoing monitored service, not a one-off run.      |
+| Agent with identity, memory, checkpoints, and recovery                                | Persistent Agent (0x0820) | Built for continuity, liveness monitoring, and revival from encrypted state.  |
+| Always-on product surface (assistant, manager, autonomous worker)                     | Persistent Agent (0x0820) | Best when users expect "my agent" to keep existing over time.                 |
+| Tool execution, coding tasks, scripted workflows, artifact generation                 | Sovereign Agent (0x080C)  | Best for task-shaped agent jobs with strong harness/tool support.             |
+| Rich one-shot agent execution with explicit `skills[]`, `systemPrompt`, and artifacts | Sovereign Agent (0x080C)  | Designed as a high-powered async job runner.                                  |
+| "I need the agent to remember past interactions as part of its long-lived identity"   | Persistent Agent (0x0820) | State continuity is a first-class part of the primitive.                      |
+| "I need a coding or tool harness to do work and return"                               | Sovereign Agent (0x080C)  | Ephemeral execution model fits this better than a spawned persistent service. |
 
 ### Persistent vs Sovereign at a Glance
 
-| Question | Persistent Agent (`0x0820`) | Sovereign Agent (`0x080C`) |
-|----------|-----------------------------|-----------------------------|
-| What is it? | Long-lived monitored agent instance | Ephemeral async agent job |
-| Lifetime | Ongoing, revivable | Single execution |
-| Best for | Always-on AI services | Powerful task execution |
-| Identity | DKMS-derived agent identity + workspace | Task-oriented; identity is not the product surface |
-| State model | DA-backed continuity + memory | Optional carry-forward via convo/output refs |
-| Skills model | No `skills_ref`; shaped by workspace docs + config | Explicit `skills[]` input refs |
-| Tools model | `tools_ref` becomes `TOOLS.md` guidance | `tools[]` constrain harness-allowed tools |
-| Operator channels | Best fit for user-facing channels (e.g. Telegram) | Usually invoked as a job from apps/contracts |
+| Question          | Persistent Agent (`0x0820`)                        | Sovereign Agent (`0x080C`)                         |
+| ----------------- | -------------------------------------------------- | -------------------------------------------------- |
+| What is it?       | Long-lived monitored agent instance                | Ephemeral async agent job                          |
+| Lifetime          | Ongoing, revivable                                 | Single execution                                   |
+| Best for          | Always-on AI services                              | Powerful task execution                            |
+| Identity          | DKMS-derived agent identity + workspace            | Task-oriented; identity is not the product surface |
+| State model       | DA-backed continuity + memory                      | Optional carry-forward via convo/output refs       |
+| Skills model      | No `skills_ref`; shaped by workspace docs + config | Explicit `skills[]` input refs                     |
+| Tools model       | `tools_ref` becomes `TOOLS.md` guidance            | `tools[]` constrain harness-allowed tools          |
+| Operator channels | Best fit for user-facing channels (e.g. Telegram)  | Usually invoked as a job from apps/contracts       |
 
 ### Capability-to-Precompile Mapping
 
 When querying `TEEServiceRegistry.getServicesByCapability(capability, true)`, both agent precompiles use the same capability:
 
-| Capability ID | Name | Precompiles |
-|--------------|------|-------------|
-| `0` | HTTP_CALL | Persistent Agent (0x0820), Sovereign Agent (0x080C) |
+| Capability ID | Name      | Precompiles                                         |
+| ------------- | --------- | --------------------------------------------------- |
+| `0`           | HTTP_CALL | Persistent Agent (0x0820), Sovereign Agent (0x080C) |
 
 Both Persistent Agent and Sovereign Agent executors run on HTTP call capability executors.
 
@@ -92,10 +106,10 @@ Both Persistent Agent and Sovereign Agent executors run on HTTP call capability 
 
 Ritual agent deployment now has two distinct operation modes. Do not mix them conceptually:
 
-| Mode | What you control | Contract surface | Best use |
-|------|------------------|------------------|----------|
-| Direct precompile caller | A consumer contract/EOA that calls precompile directly | `0x080C` (sovereign), `0x0820` (persistent) | Fast prototyping, ABI debugging, minimal demos |
-| Factory-backed contract harness | A deterministic child contract per agent workflow | `SovereignAgentFactory -> SovereignAgentHarness`, `PersistentAgentFactory -> PersistentAgentLauncher` | Production launches, recoverable lifecycle control, deterministic ownership/context |
+| Mode                            | What you control                                       | Contract surface                                                                                      | Best use                                                                            |
+| ------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Direct precompile caller        | A consumer contract/EOA that calls precompile directly | `0x080C` (sovereign), `0x0820` (persistent)                                                           | Fast prototyping, ABI debugging, minimal demos                                      |
+| Factory-backed contract harness | A deterministic child contract per agent workflow      | `SovereignAgentFactory -> SovereignAgentHarness`, `PersistentAgentFactory -> PersistentAgentLauncher` | Production launches, recoverable lifecycle control, deterministic ownership/context |
 
 The key terminology distinction:
 
@@ -179,36 +193,39 @@ Builder rule: in both sovereign and persistent payloads, `deliveryTarget` must b
 `SovereignAgentFactory` supports a two-step child flow and compressed one-shot flow.
 
 **Two-step (recommended for observability/control):**
+
 1. `deployHarness(userSalt)`
 2. `SovereignAgentHarness.configureFundAndStart(params, schedule, rolling, lockDuration)`
 
 **Compressed (single tx):**
+
 - `launchSovereignCompressed(...)`
 - `launchSovereignWithDerivedDkms(...)`
 
 All sovereign factory launch config:
 
-| Group | Field | Type | Notes |
-|------|-------|------|------|
-| Identity | `userSalt` | `bytes32` | Per-agent deterministic namespace |
-| DKMS | `executor` | `address` | Executor for DKMS extraction |
-| DKMS | `dkmsTtl` | `uint64` | DKMS extraction TTL |
-| DKMS | `dkmsFunding` | `uint256` | Optional native funding for derived DKMS payment address |
-| Payload | `params` | `SovereignAgentParams` | Full sovereign request (23-field payload) |
-| Scheduler | `schedule.schedulerGas` | `uint32` | Gas for scheduled execute callback |
-| Scheduler | `schedule.frequency` | `uint32` | Must be `> 0` |
-| Scheduler | `schedule.schedulerTtl` | `uint32` | Scheduler TTL |
-| Scheduler | `schedule.maxFeePerGas` | `uint256` | EIP-1559 max fee for scheduler |
-| Scheduler | `schedule.maxPriorityFeePerGas` | `uint256` | EIP-1559 tip for scheduler |
-| Scheduler | `schedule.value` | `uint256` | Native value sent during scheduled execution |
-| Scheduler wallet | `schedulerLockDuration` | `uint256` | RitualWallet lock duration for child payer |
-| Scheduler wallet | `schedulerFunding` | `uint256` | Native value deposited into child RitualWallet |
-| Rolling mode | `windowNumCalls` | `uint32` | Required in compressed launch; must be `> 0` |
-| Rolling mode | `rolling.windowNumCalls` | `uint32` | Number of calls in current rolling window |
-| Rolling mode | `rolling.rolloverThresholdBps` | `uint16` | Rollover threshold in bps (1..10000) |
-| Rolling mode | `rolling.rolloverRetryEveryCalls` | `uint16` | Retry cadence for successor scheduling |
+| Group            | Field                             | Type                   | Notes                                                    |
+| ---------------- | --------------------------------- | ---------------------- | -------------------------------------------------------- |
+| Identity         | `userSalt`                        | `bytes32`              | Per-agent deterministic namespace                        |
+| DKMS             | `executor`                        | `address`              | Executor for DKMS extraction                             |
+| DKMS             | `dkmsTtl`                         | `uint64`               | DKMS extraction TTL                                      |
+| DKMS             | `dkmsFunding`                     | `uint256`              | Optional native funding for derived DKMS payment address |
+| Payload          | `params`                          | `SovereignAgentParams` | Full sovereign request (23-field payload)                |
+| Scheduler        | `schedule.schedulerGas`           | `uint32`               | Gas for scheduled execute callback                       |
+| Scheduler        | `schedule.frequency`              | `uint32`               | Must be `> 0`                                            |
+| Scheduler        | `schedule.schedulerTtl`           | `uint32`               | Scheduler TTL                                            |
+| Scheduler        | `schedule.maxFeePerGas`           | `uint256`              | EIP-1559 max fee for scheduler                           |
+| Scheduler        | `schedule.maxPriorityFeePerGas`   | `uint256`              | EIP-1559 tip for scheduler                               |
+| Scheduler        | `schedule.value`                  | `uint256`              | Native value sent during scheduled execution             |
+| Scheduler wallet | `schedulerLockDuration`           | `uint256`              | RitualWallet lock duration for child payer               |
+| Scheduler wallet | `schedulerFunding`                | `uint256`              | Native value deposited into child RitualWallet           |
+| Rolling mode     | `windowNumCalls`                  | `uint32`               | Required in compressed launch; must be `> 0`             |
+| Rolling mode     | `rolling.windowNumCalls`          | `uint32`               | Number of calls in current rolling window                |
+| Rolling mode     | `rolling.rolloverThresholdBps`    | `uint16`               | Rollover threshold in bps (1..10000)                     |
+| Rolling mode     | `rolling.rolloverRetryEveryCalls` | `uint16`               | Retry cadence for successor scheduling                   |
 
 `SovereignAgentHarness` currently supports wake mode:
+
 - `NONE`
 - `ROLLING_FIXED_WINDOW`
 
@@ -244,26 +261,26 @@ numCalls <= 10,000 / frequency
 
 `ttl` remains a separate per-execution drift/expiry window and is still capped by Scheduler `MAX_TTL`.
 
-| `frequency` | Max `numCalls` |
-|-------------|----------------|
-| `2000` (default) | `5` |
+| `frequency`      | Max `numCalls` |
+| ---------------- | -------------- |
+| `2000` (default) | `5`            |
 
 **Choosing `frequency`:** Each sovereign agent invocation is an async round trip (~60-90s). Set `frequency` to cover this so the next call fires after the previous one settles. With ~350ms block time:
 
-| `frequency` | Wall time | Notes |
-|-------------|-----------|-------|
-| `2000` | ~11.7 min | **Safe default.** |
-| `500` | ~175s | Smaller deployments. |
+| `frequency` | Wall time | Notes                |
+| ----------- | --------- | -------------------- |
+| `2000`      | ~11.7 min | **Safe default.**    |
+| `500`       | ~175s     | Smaller deployments. |
 
 **Recommended starting values:**
 
-| Field | Value | Rationale |
-|-------|-------|-----------|
-| `windowNumCalls` | `5` | 5 invocations per window (~58 min from scheduling through the final slot at frequency=2000). Capped by `MAX_LIFESPAN = 10_000`: `2000·5 = 10_000`. |
-| `frequency` | `2000` | ~11.7 min between calls. Safe default. |
-| `rolloverThresholdBps` | `5000` | Successor scheduling starts at call 3 (index 2), giving 3 retry attempts (wakes 3, 4, 5). |
-| `rolloverRetryEveryCalls` | `1` | Retry every call past threshold |
-| `schedulerTtl` | `500` | Covers drift + async settlement |
+| Field                     | Value  | Rationale                                                                                                                                          |
+| ------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `windowNumCalls`          | `5`    | 5 invocations per window (~58 min from scheduling through the final slot at frequency=2000). Capped by `MAX_LIFESPAN = 10_000`: `2000·5 = 10_000`. |
+| `frequency`               | `2000` | ~11.7 min between calls. Safe default.                                                                                                             |
+| `rolloverThresholdBps`    | `5000` | Successor scheduling starts at call 3 (index 2), giving 3 retry attempts (wakes 3, 4, 5).                                                          |
+| `rolloverRetryEveryCalls` | `1`    | Retry every call past threshold                                                                                                                    |
+| `schedulerTtl`            | `500`  | Covers drift + async settlement                                                                                                                    |
 
 ### Factory Launch Preflight Checklist
 
@@ -337,157 +354,157 @@ struct SovereignRollingConfig {
 ### Sovereign Factory ABI (TypeScript)
 
 ```typescript
-const SOVEREIGN_FACTORY = '0x9dC4C054e53bCc4Ce0A0Ff09E890A7a8e817f304' as const;
+const SOVEREIGN_FACTORY = "0x9dC4C054e53bCc4Ce0A0Ff09E890A7a8e817f304" as const;
 
 const StorageRefTuple = {
-  type: 'tuple' as const,
+  type: "tuple" as const,
   components: [
-    { name: 'platform', type: 'string' },
-    { name: 'path', type: 'string' },
-    { name: 'keyRef', type: 'string' },
+    { name: "platform", type: "string" },
+    { name: "path", type: "string" },
+    { name: "keyRef", type: "string" },
   ],
 };
 
 const SovereignAgentParamsTuple = {
-  name: 'params',
-  type: 'tuple' as const,
+  name: "params",
+  type: "tuple" as const,
   components: [
-    { name: 'executor', type: 'address' },
-    { name: 'ttl', type: 'uint256' },
-    { name: 'userPublicKey', type: 'bytes' },
-    { name: 'pollIntervalBlocks', type: 'uint64' },
-    { name: 'maxPollBlock', type: 'uint64' },
-    { name: 'taskIdMarker', type: 'string' },
-    { name: 'deliveryTarget', type: 'address' },
-    { name: 'deliverySelector', type: 'bytes4' },
-    { name: 'deliveryGasLimit', type: 'uint256' },
-    { name: 'deliveryMaxFeePerGas', type: 'uint256' },
-    { name: 'deliveryMaxPriorityFeePerGas', type: 'uint256' },
-    { name: 'cliType', type: 'uint16' },
-    { name: 'prompt', type: 'string' },
-    { name: 'encryptedSecrets', type: 'bytes' },
-    { ...StorageRefTuple, name: 'convoHistory' },
-    { ...StorageRefTuple, name: 'output' },
-    { name: 'skills', type: 'tuple[]', components: StorageRefTuple.components },
-    { ...StorageRefTuple, name: 'systemPrompt' },
-    { name: 'model', type: 'string' },
-    { name: 'tools', type: 'string[]' },
-    { name: 'maxTurns', type: 'uint16' },
-    { name: 'maxTokens', type: 'uint32' },
-    { name: 'rpcUrls', type: 'string' },
+    { name: "executor", type: "address" },
+    { name: "ttl", type: "uint256" },
+    { name: "userPublicKey", type: "bytes" },
+    { name: "pollIntervalBlocks", type: "uint64" },
+    { name: "maxPollBlock", type: "uint64" },
+    { name: "taskIdMarker", type: "string" },
+    { name: "deliveryTarget", type: "address" },
+    { name: "deliverySelector", type: "bytes4" },
+    { name: "deliveryGasLimit", type: "uint256" },
+    { name: "deliveryMaxFeePerGas", type: "uint256" },
+    { name: "deliveryMaxPriorityFeePerGas", type: "uint256" },
+    { name: "cliType", type: "uint16" },
+    { name: "prompt", type: "string" },
+    { name: "encryptedSecrets", type: "bytes" },
+    { ...StorageRefTuple, name: "convoHistory" },
+    { ...StorageRefTuple, name: "output" },
+    { name: "skills", type: "tuple[]", components: StorageRefTuple.components },
+    { ...StorageRefTuple, name: "systemPrompt" },
+    { name: "model", type: "string" },
+    { name: "tools", type: "string[]" },
+    { name: "maxTurns", type: "uint16" },
+    { name: "maxTokens", type: "uint32" },
+    { name: "rpcUrls", type: "string" },
   ],
 };
 
 const SovereignScheduleConfigTuple = {
-  name: 'schedule',
-  type: 'tuple' as const,
+  name: "schedule",
+  type: "tuple" as const,
   components: [
-    { name: 'schedulerGas', type: 'uint32' },
-    { name: 'frequency', type: 'uint32' },
-    { name: 'schedulerTtl', type: 'uint32' },
-    { name: 'maxFeePerGas', type: 'uint256' },
-    { name: 'maxPriorityFeePerGas', type: 'uint256' },
-    { name: 'value', type: 'uint256' },
+    { name: "schedulerGas", type: "uint32" },
+    { name: "frequency", type: "uint32" },
+    { name: "schedulerTtl", type: "uint32" },
+    { name: "maxFeePerGas", type: "uint256" },
+    { name: "maxPriorityFeePerGas", type: "uint256" },
+    { name: "value", type: "uint256" },
   ],
 };
 
 const SovereignRollingConfigTuple = {
-  name: 'rolling',
-  type: 'tuple' as const,
+  name: "rolling",
+  type: "tuple" as const,
   components: [
-    { name: 'windowNumCalls', type: 'uint32' },
-    { name: 'rolloverThresholdBps', type: 'uint16' },
-    { name: 'rolloverRetryEveryCalls', type: 'uint16' },
+    { name: "windowNumCalls", type: "uint32" },
+    { name: "rolloverThresholdBps", type: "uint16" },
+    { name: "rolloverRetryEveryCalls", type: "uint16" },
   ],
 };
 
 const sovereignFactoryAbi = [
   {
-    name: 'deployHarness',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'userSalt', type: 'bytes32' }],
-    outputs: [{ name: 'harness', type: 'address' }],
+    name: "deployHarness",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "userSalt", type: "bytes32" }],
+    outputs: [{ name: "harness", type: "address" }],
   },
   {
-    name: 'predictHarness',
-    type: 'function',
-    stateMutability: 'view',
+    name: "predictHarness",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'harness', type: 'address' },
-      { name: 'childSalt', type: 'bytes32' },
+      { name: "harness", type: "address" },
+      { name: "childSalt", type: "bytes32" },
     ],
   },
   {
-    name: 'predictCompressedHarness',
-    type: 'function',
-    stateMutability: 'view',
+    name: "predictCompressedHarness",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'harness', type: 'address' },
-      { name: 'compressedSalt', type: 'bytes32' },
-      { name: 'childSalt', type: 'bytes32' },
+      { name: "harness", type: "address" },
+      { name: "compressedSalt", type: "bytes32" },
+      { name: "childSalt", type: "bytes32" },
     ],
   },
   {
-    name: 'getDkmsDerivation',
-    type: 'function',
-    stateMutability: 'view',
+    name: "getDkmsDerivation",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'dkmsOwner', type: 'address' },
-      { name: 'keyIndex', type: 'uint256' },
-      { name: 'keyFormat', type: 'uint8' },
+      { name: "dkmsOwner", type: "address" },
+      { name: "keyIndex", type: "uint256" },
+      { name: "keyFormat", type: "uint8" },
     ],
   },
   {
-    name: 'launchSovereignCompressed',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "launchSovereignCompressed",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'userSalt', type: 'bytes32' },
-      { name: 'executor', type: 'address' },
-      { name: 'dkmsTtl', type: 'uint64' },
-      { name: 'dkmsFunding', type: 'uint256' },
+      { name: "userSalt", type: "bytes32" },
+      { name: "executor", type: "address" },
+      { name: "dkmsTtl", type: "uint64" },
+      { name: "dkmsFunding", type: "uint256" },
       SovereignAgentParamsTuple,
       SovereignScheduleConfigTuple,
-      { name: 'schedulerLockDuration', type: 'uint256' },
-      { name: 'schedulerFunding', type: 'uint256' },
-      { name: 'windowNumCalls', type: 'uint32' },
+      { name: "schedulerLockDuration", type: "uint256" },
+      { name: "schedulerFunding", type: "uint256" },
+      { name: "windowNumCalls", type: "uint32" },
     ],
     outputs: [
-      { name: 'harness', type: 'address' },
-      { name: 'dkmsPaymentAddress', type: 'address' },
-      { name: 'schedulerCallId', type: 'uint256' },
+      { name: "harness", type: "address" },
+      { name: "dkmsPaymentAddress", type: "address" },
+      { name: "schedulerCallId", type: "uint256" },
     ],
   },
   {
-    name: 'launchSovereignWithDerivedDkms',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "launchSovereignWithDerivedDkms",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'userSalt', type: 'bytes32' },
-      { name: 'dkmsPaymentAddress', type: 'address' },
-      { name: 'dkmsFunding', type: 'uint256' },
+      { name: "userSalt", type: "bytes32" },
+      { name: "dkmsPaymentAddress", type: "address" },
+      { name: "dkmsFunding", type: "uint256" },
       SovereignAgentParamsTuple,
       SovereignScheduleConfigTuple,
-      { name: 'schedulerLockDuration', type: 'uint256' },
-      { name: 'schedulerFunding', type: 'uint256' },
-      { name: 'windowNumCalls', type: 'uint32' },
+      { name: "schedulerLockDuration", type: "uint256" },
+      { name: "schedulerFunding", type: "uint256" },
+      { name: "windowNumCalls", type: "uint32" },
     ],
     outputs: [
-      { name: 'harness', type: 'address' },
-      { name: 'schedulerCallId', type: 'uint256' },
+      { name: "harness", type: "address" },
+      { name: "schedulerCallId", type: "uint256" },
     ],
   },
 ] as const;
@@ -495,52 +512,52 @@ const sovereignFactoryAbi = [
 // Harness ABI (deployed by factory)
 const sovereignHarnessAbi = [
   {
-    name: 'configureFundAndStart',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "configureFundAndStart",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
       SovereignAgentParamsTuple,
       SovereignScheduleConfigTuple,
       SovereignRollingConfigTuple,
-      { name: 'schedulerLockDuration', type: 'uint256' },
+      { name: "schedulerLockDuration", type: "uint256" },
     ],
-    outputs: [{ name: 'schedulerCallId', type: 'uint256' }],
+    outputs: [{ name: "schedulerCallId", type: "uint256" }],
   },
   {
-    name: 'onSovereignAgentResult',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "onSovereignAgentResult",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'jobId', type: 'bytes32' },
-      { name: 'result', type: 'bytes' },
+      { name: "jobId", type: "bytes32" },
+      { name: "result", type: "bytes" },
     ],
     outputs: [],
   },
   {
-    name: 'owner',
-    type: 'function',
-    stateMutability: 'view',
+    name: "owner",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [{ type: 'address' }],
+    outputs: [{ type: "address" }],
   },
   {
-    name: 'configured',
-    type: 'function',
-    stateMutability: 'view',
+    name: "configured",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [{ type: 'bool' }],
+    outputs: [{ type: "bool" }],
   },
   {
-    name: 'stop',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "stop",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [],
     outputs: [],
   },
   {
-    name: 'restart',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "restart",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [],
     outputs: [],
   },
@@ -549,27 +566,27 @@ const sovereignHarnessAbi = [
 
 ### Sovereign Factory Function Selectors
 
-| Selector | Function |
-|----------|----------|
-| `0x3293993b` | `deployHarness(bytes32)` |
-| `0x78165f40` | `predictHarness(address,bytes32)` |
-| `0x1b95bb00` | `predictCompressedHarness(address,bytes32)` |
-| `0x08ef770d` | `getDkmsDerivation(address,bytes32)` |
-| `0x2ea5a636` | `launchSovereignCompressed(...)` |
-| `0x9331a9c0` | `launchSovereignWithDerivedDkms(...)` |
-| `0x7c041adf` | `launchSovereignCompressedRolling(...)` |
-| `0x97e1b064` | `launchSovereignWithDerivedDkmsRolling(...)` |
-| `0xb1906702` | `SovereignAgentHarness.configureFundAndStart(...)` |
+| Selector     | Function                                                      |
+| ------------ | ------------------------------------------------------------- |
+| `0x3293993b` | `deployHarness(bytes32)`                                      |
+| `0x78165f40` | `predictHarness(address,bytes32)`                             |
+| `0x1b95bb00` | `predictCompressedHarness(address,bytes32)`                   |
+| `0x08ef770d` | `getDkmsDerivation(address,bytes32)`                          |
+| `0x2ea5a636` | `launchSovereignCompressed(...)`                              |
+| `0x9331a9c0` | `launchSovereignWithDerivedDkms(...)`                         |
+| `0x7c041adf` | `launchSovereignCompressedRolling(...)`                       |
+| `0x97e1b064` | `launchSovereignWithDerivedDkmsRolling(...)`                  |
+| `0xb1906702` | `SovereignAgentHarness.configureFundAndStart(...)`            |
 | `0x8ca12055` | `SovereignAgentHarness.onSovereignAgentResult(bytes32,bytes)` |
 
 ### Gas Estimates
 
-| Function | Typical Gas | Notes |
-|----------|------------|-------|
-| `deployHarness(bytes32)` | ~400,000 | CREATE3 deployment |
-| `configureFundAndStart(...)` | ~2,500,000 | Deposits into RitualWallet + creates schedule. **Set gas limit >= 3,000,000.** |
-| `launchSovereignCompressed(...)` | ~3,500,000 | DKMS + deploy + configure in one tx. **Set gas limit >= 5,000,000.** |
-| `launchSovereignWithDerivedDkms(...)` | ~3,000,000 | Deploy + configure (no DKMS). **Set gas limit >= 4,000,000.** |
+| Function                              | Typical Gas | Notes                                                                          |
+| ------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `deployHarness(bytes32)`              | ~400,000    | CREATE3 deployment                                                             |
+| `configureFundAndStart(...)`          | ~2,500,000  | Deposits into RitualWallet + creates schedule. **Set gas limit >= 3,000,000.** |
+| `launchSovereignCompressed(...)`      | ~3,500,000  | DKMS + deploy + configure in one tx. **Set gas limit >= 5,000,000.**           |
+| `launchSovereignWithDerivedDkms(...)` | ~3,000,000  | Deploy + configure (no DKMS). **Set gas limit >= 4,000,000.**                  |
 
 Default gas estimation will fail for `configureFundAndStart` and compressed launch functions. Always set an explicit gas limit.
 
@@ -788,6 +805,7 @@ contract SovereignAgentFactory is Initializable, UUPSUpgradeable, OwnableUpgrade
 The harness is the child contract deployed by the factory. It manages the rolling window lifecycle and invokes `0x080C` on each scheduled callback.
 
 Key functions:
+
 - `configureFundAndStart(params, schedule, rolling, lockDuration)` — configure + deposit + arm schedule
 - `wakeUp(executionIndex, seriesId)` — scheduler callback; handles window promotion, successor scheduling, then calls `0x080C`
 - `stop()` — cancels all tracked schedules, sets wake mode to NONE
@@ -914,11 +932,13 @@ contract SovereignAgentHarness {
 `PersistentAgentFactory` also supports two-step and compressed launch.
 
 **Two-step:**
+
 1. `deployLauncher(userSalt)` — deploy child launcher
 2. Derive DKMS address via `requestPredictedLauncherDkmsExtraction` or the DKMS precompile (0x081B) and fund it
 3. `PersistentAgentLauncher.configureFundAndArm(persistentInput, schedule, lockDuration)` — configure, deposit to RitualWallet, and arm scheduler
 
 **Compressed (single tx, recommended):**
+
 - `launchPersistentCompressed(...)` — performs DKMS derivation + funding + launcher deploy + configure/arm in one tx
 - `launchPersistentWithDerivedDkms(...)` — same but skips DKMS derivation (pass pre-derived address)
 
@@ -926,20 +946,20 @@ contract SovereignAgentHarness {
 
 All persistent factory launch config:
 
-| Group | Field | Type | Notes |
-|------|-------|------|------|
-| Identity | `userSalt` | `bytes32` | Per-agent deterministic namespace |
-| DKMS | `executor` | `address` | Executor for DKMS extraction |
-| DKMS | `dkmsTtl` | `uint64` | DKMS extraction TTL |
-| DKMS | `dkmsFunding` | `uint256` | **Required** native funding for derived DKMS payment address — agent needs this for heartbeat registration. Use >= 1000 RITUAL for development. |
-| Payload | `persistentInput` | `bytes` | Fully ABI-encoded 0x0820 persistent request (26 fields) |
-| Scheduler | `schedule.schedulerGas` | `uint32` | Gas for one-shot scheduled launch |
-| Scheduler | `schedule.schedulerTtl` | `uint32` | Scheduler TTL |
-| Scheduler | `schedule.maxFeePerGas` | `uint256` | EIP-1559 max fee for scheduler |
-| Scheduler | `schedule.maxPriorityFeePerGas` | `uint256` | EIP-1559 tip for scheduler |
-| Scheduler | `schedule.value` | `uint256` | Native value sent during launch execution |
-| Scheduler wallet | `schedulerLockDuration` | `uint256` | RitualWallet lock duration for child payer |
-| Scheduler wallet | `schedulerFunding` | `uint256` | Native value deposited into child RitualWallet |
+| Group            | Field                           | Type      | Notes                                                                                                                                           |
+| ---------------- | ------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity         | `userSalt`                      | `bytes32` | Per-agent deterministic namespace                                                                                                               |
+| DKMS             | `executor`                      | `address` | Executor for DKMS extraction                                                                                                                    |
+| DKMS             | `dkmsTtl`                       | `uint64`  | DKMS extraction TTL                                                                                                                             |
+| DKMS             | `dkmsFunding`                   | `uint256` | **Required** native funding for derived DKMS payment address — agent needs this for heartbeat registration. Use >= 1000 RITUAL for development. |
+| Payload          | `persistentInput`               | `bytes`   | Fully ABI-encoded 0x0820 persistent request (26 fields)                                                                                         |
+| Scheduler        | `schedule.schedulerGas`         | `uint32`  | Gas for one-shot scheduled launch                                                                                                               |
+| Scheduler        | `schedule.schedulerTtl`         | `uint32`  | Scheduler TTL                                                                                                                                   |
+| Scheduler        | `schedule.maxFeePerGas`         | `uint256` | EIP-1559 max fee for scheduler                                                                                                                  |
+| Scheduler        | `schedule.maxPriorityFeePerGas` | `uint256` | EIP-1559 tip for scheduler                                                                                                                      |
+| Scheduler        | `schedule.value`                | `uint256` | Native value sent during launch execution                                                                                                       |
+| Scheduler wallet | `schedulerLockDuration`         | `uint256` | RitualWallet lock duration for child payer                                                                                                      |
+| Scheduler wallet | `schedulerFunding`              | `uint256` | Native value deposited into child RitualWallet                                                                                                  |
 
 `PersistentAgentLauncher` always arms a one-shot schedule (`numCalls=1`, `frequency=1`) to trigger persistent spawn.
 
@@ -960,104 +980,105 @@ struct PersistentLaunchSchedule {
 ### Persistent Factory ABI (TypeScript)
 
 ```typescript
-const PERSISTENT_FACTORY = '0xD4AA9D55215dc8149Af57605e70921Ea16b73591' as const;
+const PERSISTENT_FACTORY =
+  "0xD4AA9D55215dc8149Af57605e70921Ea16b73591" as const;
 
 const PersistentLaunchScheduleTuple = {
-  type: 'tuple' as const,
+  type: "tuple" as const,
   components: [
-    { name: 'schedulerGas', type: 'uint32' },
-    { name: 'schedulerTtl', type: 'uint32' },
-    { name: 'maxFeePerGas', type: 'uint256' },
-    { name: 'maxPriorityFeePerGas', type: 'uint256' },
-    { name: 'value', type: 'uint256' },
+    { name: "schedulerGas", type: "uint32" },
+    { name: "schedulerTtl", type: "uint32" },
+    { name: "maxFeePerGas", type: "uint256" },
+    { name: "maxPriorityFeePerGas", type: "uint256" },
+    { name: "value", type: "uint256" },
   ],
 } as const;
 
 const persistentFactoryAbi = [
   {
-    name: 'predictLauncher',
-    type: 'function',
-    stateMutability: 'view',
+    name: "predictLauncher",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'launcher', type: 'address' },
-      { name: 'childSalt', type: 'bytes32' },
+      { name: "launcher", type: "address" },
+      { name: "childSalt", type: "bytes32" },
     ],
   },
   {
-    name: 'predictCompressedLauncher',
-    type: 'function',
-    stateMutability: 'view',
+    name: "predictCompressedLauncher",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'launcher', type: 'address' },
-      { name: 'compressedSalt', type: 'bytes32' },
-      { name: 'childSalt', type: 'bytes32' },
+      { name: "launcher", type: "address" },
+      { name: "compressedSalt", type: "bytes32" },
+      { name: "childSalt", type: "bytes32" },
     ],
   },
   {
-    name: 'getDkmsDerivation',
-    type: 'function',
-    stateMutability: 'view',
+    name: "getDkmsDerivation",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'userSalt', type: 'bytes32' },
+      { name: "owner", type: "address" },
+      { name: "userSalt", type: "bytes32" },
     ],
     outputs: [
-      { name: 'dkmsOwner', type: 'address' },
-      { name: 'keyIndex', type: 'uint256' },
-      { name: 'keyFormat', type: 'uint8' },
+      { name: "dkmsOwner", type: "address" },
+      { name: "keyIndex", type: "uint256" },
+      { name: "keyFormat", type: "uint8" },
     ],
   },
   {
-    name: 'deployLauncher',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'userSalt', type: 'bytes32' }],
-    outputs: [{ name: 'launcher', type: 'address' }],
+    name: "deployLauncher",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "userSalt", type: "bytes32" }],
+    outputs: [{ name: "launcher", type: "address" }],
   },
   {
-    name: 'launchPersistentCompressed',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "launchPersistentCompressed",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'userSalt', type: 'bytes32' },
-      { name: 'executor', type: 'address' },
-      { name: 'dkmsTtl', type: 'uint64' },
-      { name: 'dkmsFunding', type: 'uint256' },
-      { name: 'persistentInput', type: 'bytes' },
+      { name: "userSalt", type: "bytes32" },
+      { name: "executor", type: "address" },
+      { name: "dkmsTtl", type: "uint64" },
+      { name: "dkmsFunding", type: "uint256" },
+      { name: "persistentInput", type: "bytes" },
       PersistentLaunchScheduleTuple,
-      { name: 'schedulerLockDuration', type: 'uint256' },
-      { name: 'schedulerFunding', type: 'uint256' },
+      { name: "schedulerLockDuration", type: "uint256" },
+      { name: "schedulerFunding", type: "uint256" },
     ],
     outputs: [
-      { name: 'launcher', type: 'address' },
-      { name: 'dkmsPaymentAddress', type: 'address' },
-      { name: 'callId', type: 'uint256' },
+      { name: "launcher", type: "address" },
+      { name: "dkmsPaymentAddress", type: "address" },
+      { name: "callId", type: "uint256" },
     ],
   },
   {
-    name: 'launchPersistentWithDerivedDkms',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "launchPersistentWithDerivedDkms",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
-      { name: 'userSalt', type: 'bytes32' },
-      { name: 'dkmsPaymentAddress', type: 'address' },
-      { name: 'dkmsFunding', type: 'uint256' },
-      { name: 'persistentInput', type: 'bytes' },
+      { name: "userSalt", type: "bytes32" },
+      { name: "dkmsPaymentAddress", type: "address" },
+      { name: "dkmsFunding", type: "uint256" },
+      { name: "persistentInput", type: "bytes" },
       PersistentLaunchScheduleTuple,
-      { name: 'schedulerLockDuration', type: 'uint256' },
-      { name: 'schedulerFunding', type: 'uint256' },
+      { name: "schedulerLockDuration", type: "uint256" },
+      { name: "schedulerFunding", type: "uint256" },
     ],
     outputs: [
-      { name: 'launcher', type: 'address' },
-      { name: 'callId', type: 'uint256' },
+      { name: "launcher", type: "address" },
+      { name: "callId", type: "uint256" },
     ],
   },
 ] as const;
@@ -1065,14 +1086,14 @@ const persistentFactoryAbi = [
 
 ### Persistent Factory Selector Table
 
-| Selector | Function |
-|----------|----------|
+| Selector     | Function                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `0x40d5e4f4` | `launchPersistentCompressed(bytes32,address,uint64,uint256,bytes,(uint32,uint32,uint256,uint256,uint256),uint256,uint256)` |
-| (compute) | `launchPersistentWithDerivedDkms(bytes32,address,uint256,bytes,(uint32,uint32,uint256,uint256,uint256),uint256,uint256)` |
-| (compute) | `deployLauncher(bytes32)` |
-| `0x08ef770d` | `getDkmsDerivation(address,bytes32)` |
-| (compute) | `predictLauncher(address,bytes32)` |
-| (compute) | `predictCompressedLauncher(address,bytes32)` |
+| (compute)    | `launchPersistentWithDerivedDkms(bytes32,address,uint256,bytes,(uint32,uint32,uint256,uint256,uint256),uint256,uint256)`   |
+| (compute)    | `deployLauncher(bytes32)`                                                                                                  |
+| `0x08ef770d` | `getDkmsDerivation(address,bytes32)`                                                                                       |
+| (compute)    | `predictLauncher(address,bytes32)`                                                                                         |
+| (compute)    | `predictCompressedLauncher(address,bytes32)`                                                                               |
 
 ### Persistent Factory Events
 
@@ -1090,22 +1111,22 @@ event PersistentLaunchFromDerivedDkms(
 
 ### Persistent Factory Gas Estimates
 
-| Function | Typical Gas | Recommended Gas Limit |
-|----------|-------------|----------------------|
-| `deployLauncher` | ~500K | 1,000,000 |
-| `configureFundAndArm` | ~4.5M | 8,000,000 |
-| `launchPersistentCompressed` | ~5-7M | 10,000,000 |
+| Function                     | Typical Gas | Recommended Gas Limit |
+| ---------------------------- | ----------- | --------------------- |
+| `deployLauncher`             | ~500K       | 1,000,000             |
+| `configureFundAndArm`        | ~4.5M       | 8,000,000             |
+| `launchPersistentCompressed` | ~5-7M       | 10,000,000            |
 
 ### Compressed vs Two-Step Flow
 
-| | Two-step | Compressed |
-|---|---|---|
-| **Transactions** | 2 (deployHarness + configureFundAndStart) | 1 (launchSovereignCompressed) |
-| **CREATE3 owner** | `msg.sender` (your EOA) | Factory contract (transfers ownership after configure) |
-| **Predict function** | `predictHarness(msg.sender, userSalt)` | `predictCompressedHarness(msg.sender, userSalt)` |
-| **Salt derivation** | `keccak256(abi.encode(owner, userSalt))` | Double-wrapped: `keccak256(abi.encode(msg.sender, userSalt))` then `keccak256(abi.encode(factory, compressedSalt))` |
-| **DKMS** | Separate tx (call `requestPredictedHarnessDkmsExtraction` or use consumer contract) | Inline — factory calls DKMS precompile during launch |
-| **When to use** | Observability, debugging, step-by-step control | Production one-shot launch |
+|                      | Two-step                                                                            | Compressed                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Transactions**     | 2 (deployHarness + configureFundAndStart)                                           | 1 (launchSovereignCompressed)                                                                                       |
+| **CREATE3 owner**    | `msg.sender` (your EOA)                                                             | Factory contract (transfers ownership after configure)                                                              |
+| **Predict function** | `predictHarness(msg.sender, userSalt)`                                              | `predictCompressedHarness(msg.sender, userSalt)`                                                                    |
+| **Salt derivation**  | `keccak256(abi.encode(owner, userSalt))`                                            | Double-wrapped: `keccak256(abi.encode(msg.sender, userSalt))` then `keccak256(abi.encode(factory, compressedSalt))` |
+| **DKMS**             | Separate tx (call `requestPredictedHarnessDkmsExtraction` or use consumer contract) | Inline — factory calls DKMS precompile during launch                                                                |
+| **When to use**      | Observability, debugging, step-by-step control                                      | Production one-shot launch                                                                                          |
 
 **`deliveryTarget` rules:**
 
@@ -1186,6 +1207,7 @@ Agent precompiles (and other long-running async precompiles) are committed to th
 3. The executor is contacted **after** commitment, not before
 
 **If the executor is unreachable:**
+
 - The job remains in PENDING_EXECUTION until TTL expires
 - Your callback is never invoked
 - RitualWallet funds remain locked until TTL block is reached
@@ -1225,23 +1247,24 @@ If you want "my agent keeps existing and working for me," this is the primitive.
 
 **Do NOT submit a persistent agent request until every item below is satisfied.** Skipping any item results in a wasted transaction: the precompile call may succeed (Phase 1 + Phase 2) but the agent container will fail silently — no heartbeat, no Telegram, no recovery. You will see a container ID in the Phase 2 response but the agent will be dead.
 
-| # | Check | How to verify | What happens if skipped |
-|---|-------|---------------|------------------------|
-| 1 | **Real DA credentials** (not mocked, not empty) | Verify GCS bucket exists and SA has `storage.objectAdmin`, or HF token can access repo, or Pinata JWT is valid | Agent cannot checkpoint. Container may start but cannot persist state or be revived. |
-| 2 | **DKMS address funded** with native RITUAL (>= 1000 for development) | `cast balance <dkms_address>` after funding | Agent cannot register on heartbeat contract. Nonce stays 0. Agent is operationally dead even though container runs. |
-| 3 | **`rpcUrls` is a publicly reachable RPC** (e.g., `https://rpc.ritualfoundation.org`) | Verify the URL is reachable from outside your local machine | Agent cannot post heartbeats, cannot send any on-chain transactions. **Do NOT use `http://172.17.0.1:8545`** — this is a Docker bridge address that only works when the chain runs on the same Docker host as the executor. |
-| 4 | **RitualWallet deposit** covers the spawn lifecycle | `cast call RITUAL_WALLET "balanceOf(address)(uint256)" <sender>` | Precompile call reverts with `insufficient wallet balance`. |
-| 5 | **No pending async job** on sender | `cast call ASYNC_JOB_TRACKER "hasPendingJobForSender(address)(bool)" <sender>` | Transaction silently dropped by the block builder. |
-| 6 | **At least one valid executor** for HTTP_CALL capability | `TEEServiceRegistry.getServicesByCapability(0, true)` returns non-empty | Commitment mined but executor never processes the job. TTL expires, funds locked. |
-| 7 | **LLM API key is valid** for the chosen provider | Test the key against the provider's API before encrypting | Agent container fails at LLM initialization. |
-| 8 | **`deliveryTarget` matches the predicted launcher** | For compressed: use `predictCompressedLauncher`. For two-step: use `predictLauncher`. | `InvalidDeliveryTarget()` revert, or Phase 2 delivered to wrong contract. |
-| 9 | **Gas limit is sufficient** | Use >= 10,000,000 for `launchPersistentCompressed`, >= 8,000,000 for `configureFundAndArm` | Transaction reverts with out-of-gas. All state changes lost. |
+| #   | Check                                                                                | How to verify                                                                                                  | What happens if skipped                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Real DA credentials** (not mocked, not empty)                                      | Verify GCS bucket exists and SA has `storage.objectAdmin`, or HF token can access repo, or Pinata JWT is valid | Agent cannot checkpoint. Container may start but cannot persist state or be revived.                                                                                                                                        |
+| 2   | **DKMS address funded** with native RITUAL (>= 1000 for development)                 | `cast balance <dkms_address>` after funding                                                                    | Agent cannot register on heartbeat contract. Nonce stays 0. Agent is operationally dead even though container runs.                                                                                                         |
+| 3   | **`rpcUrls` is a publicly reachable RPC** (e.g., `https://rpc.ritualfoundation.org`) | Verify the URL is reachable from outside your local machine                                                    | Agent cannot post heartbeats, cannot send any on-chain transactions. **Do NOT use `http://172.17.0.1:8545`** — this is a Docker bridge address that only works when the chain runs on the same Docker host as the executor. |
+| 4   | **RitualWallet deposit** covers the spawn lifecycle                                  | `cast call RITUAL_WALLET "balanceOf(address)(uint256)" <sender>`                                               | Precompile call reverts with `insufficient wallet balance`.                                                                                                                                                                 |
+| 5   | **No pending async job** on sender                                                   | `cast call ASYNC_JOB_TRACKER "hasPendingJobForSender(address)(bool)" <sender>`                                 | Transaction silently dropped by the block builder.                                                                                                                                                                          |
+| 6   | **At least one valid executor** for HTTP_CALL capability                             | `TEEServiceRegistry.getServicesByCapability(0, true)` returns non-empty                                        | Commitment mined but executor never processes the job. TTL expires, funds locked.                                                                                                                                           |
+| 7   | **LLM API key is valid** for the chosen provider                                     | Test the key against the provider's API before encrypting                                                      | Agent container fails at LLM initialization.                                                                                                                                                                                |
+| 8   | **`deliveryTarget` matches the predicted launcher**                                  | For compressed: use `predictCompressedLauncher`. For two-step: use `predictLauncher`.                          | `InvalidDeliveryTarget()` revert, or Phase 2 delivered to wrong contract.                                                                                                                                                   |
+| 9   | **Gas limit is sufficient**                                                          | Use >= 10,000,000 for `launchPersistentCompressed`, >= 8,000,000 for `configureFundAndArm`                     | Transaction reverts with out-of-gas. All state changes lost.                                                                                                                                                                |
 
 > **Use `launchPersistentCompressed` to satisfy checks 2 and 8 atomically.** The compressed flow derives the DKMS address, funds it, deploys the launcher, and arms the scheduler in a single transaction. The two-step flow requires you to handle DKMS derivation and funding manually.
 
 **DA is non-negotiable.** Persistent agents cannot function without real, working DA credentials. Unlike Sovereign Agents (which can execute with empty DA refs), Persistent Agents use DA for state continuity, checkpoint/recovery, and workspace persistence. If your DA credentials are fake or expired, the agent will write its initial state and then die.
 
 Supported DA providers:
+
 - `gcs` — requires GCS service account JSON + bucket name
 - `hf` — requires HuggingFace access token + repo ID
 - `pinata` — requires Pinata JWT
@@ -1345,8 +1368,8 @@ This is one of the biggest conceptual differences from Sovereign Agent.
 ```typescript
 // ABI type: (string, string, string)
 // Examples:
-const hfRef  = ['hf', 'my-org/agent-configs/SOUL.md', 'HF_TOKEN'];
-const gcsRef = ['gcs', 'agents/soul.md', 'GCS_CREDENTIALS'];
+const hfRef = ["hf", "my-org/agent-configs/SOUL.md", "HF_TOKEN"];
+const gcsRef = ["gcs", "agents/soul.md", "GCS_CREDENTIALS"];
 ```
 
 **Soul Reference** (`soul_ref` → `SOUL.md`): The agent's core identity and personality definition.
@@ -1419,56 +1442,68 @@ This lets a persistent agent expose an operator-facing communication surface wit
 ### Raw ABI Usage
 
 ```typescript
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { encodeAbiParameters, parseAbiParameters } from "viem";
 
 // LLM provider enum: 0=Anthropic, 1=OpenAI, 2=Gemini, 3=xAI, 4=OpenRouter
-const LLMProvider = { ANTHROPIC: 0, OPENAI: 1, GEMINI: 2, XAI: 3, OPENROUTER: 4 } as const;
+const LLMProvider = {
+  ANTHROPIC: 0,
+  OPENAI: 1,
+  GEMINI: 2,
+  XAI: 3,
+  OPENROUTER: 4,
+} as const;
 
-const PERSISTENT_AGENT_ABI = parseAbiParameters([
-  'address, bytes[], uint256, bytes[], bytes,',                  // executor, encryptedSecrets, ttl, secretSignatures, userPublicKey
-  'uint64, address, bytes4, uint256, uint256, uint256, uint256,', // maxSpawnBlock, delivery config (target, selector, gasLimit, maxFee, maxPriorityFee, value)
-  'uint8, string, string,',                                      // provider, model, llmApiKeyRef
-  '(string,string,string), (string,string,string),',             // daConfig, soulRef
-  '(string,string,string), (string,string,string),',             // agentsRef, userRef
-  '(string,string,string), (string,string,string),',             // memoryRef, identityRef
-  '(string,string,string), (string,string,string),',             // toolsRef, openclawConfigRef
-  'string, string, uint16',                                      // restoreFromCid, rpcUrls, agentRuntime
-].join(''));
+const PERSISTENT_AGENT_ABI = parseAbiParameters(
+  [
+    "address, bytes[], uint256, bytes[], bytes,", // executor, encryptedSecrets, ttl, secretSignatures, userPublicKey
+    "uint64, address, bytes4, uint256, uint256, uint256, uint256,", // maxSpawnBlock, delivery config (target, selector, gasLimit, maxFee, maxPriorityFee, value)
+    "uint8, string, string,", // provider, model, llmApiKeyRef
+    "(string,string,string), (string,string,string),", // daConfig, soulRef
+    "(string,string,string), (string,string,string),", // agentsRef, userRef
+    "(string,string,string), (string,string,string),", // memoryRef, identityRef
+    "(string,string,string), (string,string,string),", // toolsRef, openclawConfigRef
+    "string, string, uint16", // restoreFromCid, rpcUrls, agentRuntime
+  ].join(""),
+);
 
 // Do not hardcode executor addresses. Select a live executor from
 // TEEServiceRegistry.getServicesByCapability(0, true) at request build time.
-const executorAddress = '0x...selectedFromRegistry';
+const executorAddress = "0x...selectedFromRegistry";
 
 const encoded = encodeAbiParameters(PERSISTENT_AGENT_ABI, [
-  executorAddress, [], 300n, [], '0x',               // base fields
+  executorAddress,
+  [],
+  300n,
+  [],
+  "0x", // base fields
 
   // Delivery
-  600n,                                               // maxSpawnBlock (~3.5 min at ~350ms blocks)
-  '0x...consumerContract',                            // deliveryTarget
-  toFunctionSelector('onPersistentAgentResult(bytes32,bytes)'), // deliverySelector
-  500_000n,                                           // deliveryGasLimit
-  1_000_000_000n,                                     // deliveryMaxFeePerGas
-  100_000_000n,                                       // deliveryMaxPriorityFeePerGas
-  0n,                                                 // deliveryValue
+  600n, // maxSpawnBlock (~3.5 min at ~350ms blocks)
+  "0x...consumerContract", // deliveryTarget
+  toFunctionSelector("onPersistentAgentResult(bytes32,bytes)"), // deliverySelector
+  500_000n, // deliveryGasLimit
+  1_000_000_000n, // deliveryMaxFeePerGas
+  100_000_000n, // deliveryMaxPriorityFeePerGas
+  0n, // deliveryValue
 
   // LLM configuration
-  LLMProvider.ANTHROPIC,                              // provider
-  'claude-sonnet-4-5-20250929',                       // model
-  'ANTHROPIC_API_KEY',                                // llmApiKeyRef — placeholder name in encrypted_secrets
+  LLMProvider.ANTHROPIC, // provider
+  "claude-sonnet-4-5-20250929", // model
+  "ANTHROPIC_API_KEY", // llmApiKeyRef — placeholder name in encrypted_secrets
 
   // Storage references (platform, path, keyRef)
-  ['hf', 'my-org/agent-data/manifest.json', 'HF_TOKEN'],  // daConfig
-  ['hf', 'my-org/agent-configs/SOUL.md', 'HF_TOKEN'],     // soulRef
-  ['', '', ''],                                             // agentsRef (empty)
-  ['', '', ''],                                             // userRef (empty)
-  ['hf', 'my-org/agent-configs/MEMORY.md', 'HF_TOKEN'],   // memoryRef
-  ['hf', 'my-org/agent-configs/IDENTITY.md', 'HF_TOKEN'], // identityRef
-  ['hf', 'my-org/agent-configs/TOOLS.md', 'HF_TOKEN'],    // toolsRef
-  ['', '', ''],                                             // openclawConfigRef (empty)
+  ["hf", "my-org/agent-data/manifest.json", "HF_TOKEN"], // daConfig
+  ["hf", "my-org/agent-configs/SOUL.md", "HF_TOKEN"], // soulRef
+  ["", "", ""], // agentsRef (empty)
+  ["", "", ""], // userRef (empty)
+  ["hf", "my-org/agent-configs/MEMORY.md", "HF_TOKEN"], // memoryRef
+  ["hf", "my-org/agent-configs/IDENTITY.md", "HF_TOKEN"], // identityRef
+  ["hf", "my-org/agent-configs/TOOLS.md", "HF_TOKEN"], // toolsRef
+  ["", "", ""], // openclawConfigRef (empty)
 
-  '',                                                       // restoreFromCid
-  `{"ritual":"${process.env.RITUAL_RPC_URL}"}`,             // rpcUrls — JSON-encoded; the agent container uses this to reach the chain
-  0,                                                        // agentRuntime (0=ZeroClaw, 2=Hermes; 1 is legacy-reserved)
+  "", // restoreFromCid
+  `{"ritual":"${process.env.RITUAL_RPC_URL}"}`, // rpcUrls — JSON-encoded; the agent container uses this to reach the chain
+  0, // agentRuntime (0=ZeroClaw, 2=Hermes; 1 is legacy-reserved)
 ]);
 ```
 
@@ -1477,10 +1512,10 @@ const encoded = encodeAbiParameters(PERSISTENT_AGENT_ABI, [
 ```typescript
 // LLM provider enum (Persistent Agent only — set as uint8 on-chain field):
 const LLMProvider = {
-  ANTHROPIC:  0,
-  OPENAI:     1,
-  GEMINI:     2,
-  XAI:        3,
+  ANTHROPIC: 0,
+  OPENAI: 1,
+  GEMINI: 2,
+  XAI: 3,
   OPENROUTER: 4,
 } as const;
 ```
@@ -1552,9 +1587,12 @@ function onPersistentAgentResult(bytes32 jobId, bytes calldata result) external 
 ```
 
 Compute the delivery selector:
+
 ```typescript
-import { toFunctionSelector } from 'viem';
-const deliverySelector = toFunctionSelector('onPersistentAgentResult(bytes32,bytes)');
+import { toFunctionSelector } from "viem";
+const deliverySelector = toFunctionSelector(
+  "onPersistentAgentResult(bytes32,bytes)",
+);
 ```
 
 ### Phase 1 Response
@@ -1564,11 +1602,11 @@ Phase 1 returns a pending instance ID: `"pending-{txHash[:16]}"` (other fields e
 ### Phase 2 Response
 
 ```typescript
-import { decodeAbiParameters, parseAbiParameters } from 'viem';
+import { decodeAbiParameters, parseAbiParameters } from "viem";
 
 const [instanceId, , containerId, checkpointCid, errorMessage] =
   decodeAbiParameters(
-    parseAbiParameters('string, string, string, string, string, string'),
+    parseAbiParameters("string, string, string, string, string, string"),
     responseData,
   );
 ```
@@ -1592,17 +1630,18 @@ The Sovereign Agent precompile runs AI coding agents (Claude Code, Crush, ZeroCl
 
 ### Supported Harnesses and Providers
 
-| Harness | `cliType` | Description | Supported Providers |
-|---------|-----------|-------------|-------------------|
-| Claude Code | `0` | Anthropic's Claude Code CLI | Anthropic only |
-| Crush | `5` | Lightweight Go agent (charmbracelet/crush) | Anthropic, OpenAI, Gemini, OpenRouter |
-| ZeroClaw | `6` | Rust AI agent with tool calling | Anthropic, OpenAI, Gemini, OpenRouter, Ritual gateway |
+| Harness     | `cliType` | Description                                | Supported Providers                                   |
+| ----------- | --------- | ------------------------------------------ | ----------------------------------------------------- |
+| Claude Code | `0`       | Anthropic's Claude Code CLI                | Anthropic only                                        |
+| Crush       | `5`       | Lightweight Go agent (charmbracelet/crush) | Anthropic, OpenAI, Gemini, OpenRouter                 |
+| ZeroClaw    | `6`       | Rust AI agent with tool calling            | Anthropic, OpenAI, Gemini, OpenRouter, Ritual gateway |
 
 > Harness types 1-4 exist in some older enums/docs but are unavailable in the supported executor path:
+>
 > - 1 (Codex), 2 (Aider), 3 (MCP) are **rejected at chain validation** (only `cliType ∈ {0, 4, 5, 6}` is allowed).
 > - 4 (OpenClaw) **passes chain validation but is explicitly disabled at the executor** — submitting it returns the error "OpenClaw (type 4) is temporarily disabled; use ZeroClaw (type 6) instead".
 >
-> Build against **0 (Claude Code), 5 (Crush), 6 (ZeroClaw)** only. **`Hermes` is NOT a sovereign agent harness** — it's a *Persistent Agent* runtime (`agentRuntime = 2` in the Persistent Agent section above). The two enums use different numbering and apply to different precompiles. Do not try to set `cliType = 2` for sovereign — it will be rejected at the chain layer.
+> Build against **0 (Claude Code), 5 (Crush), 6 (ZeroClaw)** only. **`Hermes` is NOT a sovereign agent harness** — it's a _Persistent Agent_ runtime (`agentRuntime = 2` in the Persistent Agent section above). The two enums use different numbering and apply to different precompiles. Do not try to set `cliType = 2` for sovereign — it will be rejected at the chain layer.
 
 > **Recommended default for new sovereign agents:** `cliType = 6` (ZeroClaw) with `LLM_PROVIDER = "ritual"` and `model = "zai-org/GLM-4.7-FP8"`. This combination requires no external API keys (the Ritual gateway handles auth via mTLS inside the TEE) and is the lowest-friction path to first-call success. Switch to Claude Code + Anthropic only if you specifically need Claude's tooling, or if you've hit the model's 128K context window and need a larger one. (See `ritual-dapp-llm` for context-window vs `max_completion_tokens` semantics.)
 
@@ -1621,21 +1660,21 @@ These are independent. ZeroClaw can talk to Anthropic, Crush can talk to Gemini,
 
 The agent + LLM are both changing; you must change all three of `cliType`, secrets, and `model`:
 
-| Field | Before | After |
-|-------|--------|-------|
-| `params.agentType` (`cliType`) | `6` (ZeroClaw) | `0` (Claude Code) |
-| `encryptedSecrets` (decrypted JSON) | `{"LLM_PROVIDER":"ritual"}` | `{"LLM_PROVIDER":"anthropic","ANTHROPIC_API_KEY":"sk-ant-..."}` |
-| `params.model` | `"zai-org/GLM-4.7-FP8"` | A Claude model ID, e.g. `"claude-sonnet-4-5-20250929"` or `"claude-haiku-4-5-20251001"` |
+| Field                               | Before                      | After                                                                                   |
+| ----------------------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `params.agentType` (`cliType`)      | `6` (ZeroClaw)              | `0` (Claude Code)                                                                       |
+| `encryptedSecrets` (decrypted JSON) | `{"LLM_PROVIDER":"ritual"}` | `{"LLM_PROVIDER":"anthropic","ANTHROPIC_API_KEY":"sk-ant-..."}`                         |
+| `params.model`                      | `"zai-org/GLM-4.7-FP8"`     | A Claude model ID, e.g. `"claude-sonnet-4-5-20250929"` or `"claude-haiku-4-5-20251001"` |
 
 **Walkthrough: keep ZeroClaw, switch from Ritual GLM to Anthropic Claude.**
 
 Only secrets + model change; `cliType` stays at `6`:
 
-| Field | Before | After |
-|-------|--------|-------|
-| `params.agentType` | `6` (ZeroClaw) | `6` (ZeroClaw) — unchanged |
+| Field              | Before                      | After                                                           |
+| ------------------ | --------------------------- | --------------------------------------------------------------- |
+| `params.agentType` | `6` (ZeroClaw)              | `6` (ZeroClaw) — unchanged                                      |
 | `encryptedSecrets` | `{"LLM_PROVIDER":"ritual"}` | `{"LLM_PROVIDER":"anthropic","ANTHROPIC_API_KEY":"sk-ant-..."}` |
-| `params.model` | `"zai-org/GLM-4.7-FP8"` | `"claude-sonnet-4-5-20250929"` |
+| `params.model`     | `"zai-org/GLM-4.7-FP8"`     | `"claude-sonnet-4-5-20250929"`                                  |
 
 #### Important harness lifecycle gotcha (probable cause of "I tried to set cliType=0 and it didn't change")
 
@@ -1679,23 +1718,23 @@ A second source of confusion: the public block explorer (`ritual-scan`) historic
 Use one of these encrypted JSON payloads:
 
 ```json
-{"LLM_PROVIDER":"anthropic","ANTHROPIC_API_KEY":"..."}
+{ "LLM_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "..." }
 ```
 
 ```json
-{"LLM_PROVIDER":"openai","OPENAI_API_KEY":"..."}
+{ "LLM_PROVIDER": "openai", "OPENAI_API_KEY": "..." }
 ```
 
 ```json
-{"LLM_PROVIDER":"gemini","GEMINI_API_KEY":"..."}
+{ "LLM_PROVIDER": "gemini", "GEMINI_API_KEY": "..." }
 ```
 
 ```json
-{"LLM_PROVIDER":"openrouter","OPENROUTER_API_KEY":"..."}
+{ "LLM_PROVIDER": "openrouter", "OPENROUTER_API_KEY": "..." }
 ```
 
 ```json
-{"LLM_PROVIDER":"ritual"}
+{ "LLM_PROVIDER": "ritual" }
 ```
 
 The `"ritual"` provider does not require an API key and is unavailable for Persistent Agent.
@@ -1705,6 +1744,7 @@ The `"ritual"` provider does not require an API key and is unavailable for Persi
 **One pending job per sender.** The chain enforces a single pending async job per sender address via `AsyncJobTracker`. If your previous sovereign agent call hasn't been settled by the executor (or expired via TTL), subsequent calls from the same address are **silently dropped** by the block builder — no error, no revert, the tx just never gets included. Use a fresh sender address or wait for the previous job to complete.
 
 **RitualWallet deposit required.** The sender must have RITUAL deposited in the `RitualWallet` contract (`0x532F0dF0896F353d8C3DD8cc134e8129DA2a3948`) with a lock duration that extends past the TTL. Deposit with native RITUAL (not wrapped tokens):
+
 ```solidity
 RitualWallet(0x532F...3948).deposit{value: 5 ether}(100_000); // lockDuration in blocks (~9.7 hours for dev)
 ```
@@ -1726,6 +1766,7 @@ success, error, text, _, _, artifacts = decode(
 ```
 
 **Verification criterion.** "Phase 2 event arrived" is not enough. Decode the payload and validate:
+
 - `success == true`
 - `error` is empty
 - `textResponse` is non-empty if your prompt expects text output
@@ -1735,8 +1776,9 @@ success, error, text, _, _, artifacts = decode(
 The most painful failure mode for sovereign agents is **not** "Phase 2 never lands" (that has good signals — see `ritual-dapp-longrunning`). It's **"Phase 2 lands and `success == true` but the `text` field isn't the JSON object your contract was relying on"**. This happens because the harness (Claude Code / Crush / ZeroClaw) wraps an LLM call inside its own ReAct loop, and when that inner LLM call fails — most commonly from **upstream context-window overflow** — the harness can fall back to writing its own freeform reasoning trace, an upstream error string, or a partially-formed JSON-ish blob into `text` instead of the structured object your prompt asked for. From your contract's point of view: `success=true`, `error=""`, `text="<long apology / reasoning / error string>"`. Strict JSON parsing then reverts (or worse, parses garbage).
 
 Drivers of this failure (in rough order of frequency):
-1. **Operational context-window cap on the upstream LLM.** The on-chain `max_seq_length` for a model is the *registered* capability; the actually deployed inference endpoint can be configured smaller. The live Ritual gateway currently caps `zai-org/GLM-4.7-FP8` at **64K = 65,536 tokens** even though it is registered at 128K. Inside an agent loop, accumulated tool-call replay context fills 64K much faster than you'd expect — well before you hit 128K. Treat the smaller of the two as your real budget.
-2. **`maxTokens` is not a context-window cap.** It limits the *output* the model is allowed to generate. Setting `maxTokens=8192` does not stop a 70K-token prompt from being sent.
+
+1. **Operational context-window cap on the upstream LLM.** The on-chain `max_seq_length` for a model is the _registered_ capability; the actually deployed inference endpoint can be configured smaller. The live Ritual gateway currently caps `zai-org/GLM-4.7-FP8` at **64K = 65,536 tokens** even though it is registered at 128K. Inside an agent loop, accumulated tool-call replay context fills 64K much faster than you'd expect — well before you hit 128K. Treat the smaller of the two as your real budget.
+2. **`maxTokens` is not a context-window cap.** It limits the _output_ the model is allowed to generate. Setting `maxTokens=8192` does not stop a 70K-token prompt from being sent.
 3. **Harness reasoning that bleeds into `text`.** When the inner LLM errors mid-iteration, harnesses sometimes return their last reasoning step as the agent's "answer" rather than failing cleanly. The chain layer can't tell the difference; only your decoder can.
 
 **Required consumer pattern.** Every sovereign-agent consumer that expects a structured response must defensively decode in this order:
@@ -1819,17 +1861,21 @@ StorageRef tuples use `(string, string, string)` — NOT `(string, string, bytes
 type StorageRef = [string, string, string];
 
 // Empty ref:
-const emptyRef: StorageRef = ['', '', ''];
+const emptyRef: StorageRef = ["", "", ""];
 
 // HuggingFace ref:
-const hfRef: StorageRef = ['hf', 'my-org/workspace:session.jsonl', 'HF_TOKEN'];
+const hfRef: StorageRef = ["hf", "my-org/workspace:session.jsonl", "HF_TOKEN"];
 ```
 
 ### Raw ABI Usage
 
 ```typescript
-import { encodeAbiParameters, parseAbiParameters, toFunctionSelector } from 'viem';
-import { encrypt, ECIES_CONFIG } from 'eciesjs';
+import {
+  encodeAbiParameters,
+  parseAbiParameters,
+  toFunctionSelector,
+} from "viem";
+import { encrypt, ECIES_CONFIG } from "eciesjs";
 
 ECIES_CONFIG.symmetricNonceLength = 12; // see ritual-dapp-secrets
 
@@ -1839,57 +1885,61 @@ const CLIType = {
   ZEROCLAW: 6,
 } as const;
 
-const SOVEREIGN_AGENT_ABI = parseAbiParameters([
-  'address, uint256, bytes,',                                // executor, ttl, userPublicKey
-  'uint64, uint64, string,',                                 // pollIntervalBlocks, maxPollBlock, taskIdMarker
-  'address, bytes4, uint256, uint256, uint256,',             // delivery config
-  'uint16, string, bytes,',                                  // cliType, prompt, encryptedSecrets
-  '(string,string,string), (string,string,string),',        // convoHistory, output
-  '(string,string,string)[],',                               // skills
-  '(string,string,string),',                                 // systemPrompt
-  'string, string[], uint16, uint32, string',                // model, tools, maxTurns, maxTokens, rpcUrls
-].join(''));
+const SOVEREIGN_AGENT_ABI = parseAbiParameters(
+  [
+    "address, uint256, bytes,", // executor, ttl, userPublicKey
+    "uint64, uint64, string,", // pollIntervalBlocks, maxPollBlock, taskIdMarker
+    "address, bytes4, uint256, uint256, uint256,", // delivery config
+    "uint16, string, bytes,", // cliType, prompt, encryptedSecrets
+    "(string,string,string), (string,string,string),", // convoHistory, output
+    "(string,string,string)[],", // skills
+    "(string,string,string),", // systemPrompt
+    "string, string[], uint16, uint32, string", // model, tools, maxTurns, maxTokens, rpcUrls
+  ].join(""),
+);
 
 // Encrypt API keys with executor's public key.
 // LLM_PROVIDER is mandatory — the executor rejects the call with
 // "LLM_PROVIDER not found in secrets" if the key is missing or empty.
 const secretsJson = JSON.stringify({
-  LLM_PROVIDER: 'anthropic',
+  LLM_PROVIDER: "anthropic",
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_KEY,
 });
 const encryptedSecrets = encrypt(executorPublicKey, Buffer.from(secretsJson));
 
-const deliverySelector = toFunctionSelector('onSovereignAgentResult(bytes32,bytes)');
+const deliverySelector = toFunctionSelector(
+  "onSovereignAgentResult(bytes32,bytes)",
+);
 
 const encoded = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
-  executorAddress,                     // executor (from TEEServiceRegistry)
-  500n,                                // ttl (blocks until expiry)
-  '0x',                                // userPublicKey (empty = plaintext delivery)
+  executorAddress, // executor (from TEEServiceRegistry)
+  500n, // ttl (blocks until expiry)
+  "0x", // userPublicKey (empty = plaintext delivery)
 
-  5n,                                  // pollIntervalBlocks
-  6000n,                               // maxPollBlock
-  'SOVEREIGN_AGENT_TASK',              // taskIdMarker
+  5n, // pollIntervalBlocks
+  6000n, // maxPollBlock
+  "SOVEREIGN_AGENT_TASK", // taskIdMarker
 
-  consumerContractAddress,             // deliveryTarget (your contract)
-  deliverySelector,                    // deliverySelector
-  3_000_000n,                          // deliveryGasLimit
-  1_000_000_000n,                      // deliveryMaxFeePerGas (1 gwei)
-  100_000_000n,                        // deliveryMaxPriorityFeePerGas
+  consumerContractAddress, // deliveryTarget (your contract)
+  deliverySelector, // deliverySelector
+  3_000_000n, // deliveryGasLimit
+  1_000_000_000n, // deliveryMaxFeePerGas (1 gwei)
+  100_000_000n, // deliveryMaxPriorityFeePerGas
 
-  CLIType.CRUSH,                       // cliType
-  'Say hello world',                   // prompt
-  `0x${encryptedSecrets.toString('hex')}`,  // encryptedSecrets (single blob)
+  CLIType.CRUSH, // cliType
+  "Say hello world", // prompt
+  `0x${encryptedSecrets.toString("hex")}`, // encryptedSecrets (single blob)
 
-  ['hf', 'my-org/workspace/sessions/session.jsonl', 'HF_TOKEN'],  // convoHistory (HF-backed memory)
-  ['hf', 'my-org/workspace/artifacts/', 'HF_TOKEN'],              // output (HF-backed artifacts)
-  [],                                                               // skills (empty)
-  ['hf', 'my-org/workspace/prompts/system.md', 'HF_TOKEN'],       // systemPrompt (HF-hosted)
+  ["hf", "my-org/workspace/sessions/session.jsonl", "HF_TOKEN"], // convoHistory (HF-backed memory)
+  ["hf", "my-org/workspace/artifacts/", "HF_TOKEN"], // output (HF-backed artifacts)
+  [], // skills (empty)
+  ["hf", "my-org/workspace/prompts/system.md", "HF_TOKEN"], // systemPrompt (HF-hosted)
 
-  'claude-sonnet-4-5-20250929',       // model (example Anthropic model id)
-  [],                                  // tools (empty = all)
-  50,                                  // maxTurns
-  8192,                                // maxTokens
-  '',                                  // rpcUrls (empty = default)
+  "claude-sonnet-4-5-20250929", // model (example Anthropic model id)
+  [], // tools (empty = all)
+  50, // maxTurns
+  8192, // maxTokens
+  "", // rpcUrls (empty = default)
 ]);
 ```
 
@@ -1931,20 +1981,20 @@ Sovereign agents are **stateless by default** — each call gets a fresh contain
 
 **Four StorageRef fields control DA:**
 
-| Field | Index | What It Does |
-|-------|:---:|---|
-| `convoHistory` | 14 | Conversation memory. Executor downloads previous JSONL, injects as conversation context in the prompt, appends a new turn after execution, re-uploads. |
-| `output` | 15 | Artifact storage. Executor downloads previous files into `/workspace/artifacts/`, extracts new files after execution, uploads them. |
-| `skills` | 16 | Skill definitions. Downloaded and injected as `/workspace/skill_0.md`, `skill_1.md`, etc. Read-only — not re-uploaded. |
-| `systemPrompt` | 17 | System prompt. Downloaded and passed to the agent via `--system-prompt`. Read-only — not re-uploaded. |
+| Field          | Index | What It Does                                                                                                                                           |
+| -------------- | :---: | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `convoHistory` |  14   | Conversation memory. Executor downloads previous JSONL, injects as conversation context in the prompt, appends a new turn after execution, re-uploads. |
+| `output`       |  15   | Artifact storage. Executor downloads previous files into `/workspace/artifacts/`, extracts new files after execution, uploads them.                    |
+| `skills`       |  16   | Skill definitions. Downloaded and injected as `/workspace/skill_0.md`, `skill_1.md`, etc. Read-only — not re-uploaded.                                 |
+| `systemPrompt` |  17   | System prompt. Downloaded and passed to the agent via `--system-prompt`. Read-only — not re-uploaded.                                                  |
 
 **Supported DA platforms:**
 
-| Platform | `platform` | Example `path` | `keyRef` | Semantics |
-|----------|-----------|----------------|----------|-----------|
-| HuggingFace | `'hf'` | `'my-org/agent-workspace/sessions/session.jsonl'` | `'HF_TOKEN'` | Overwrite — same path on each upload |
-| GCS | `'gcs'` | `'sovereign-agent/convo_history.jsonl'` | `'GCS_CREDENTIALS'` | Overwrite — object path within bucket (bucket specified in credentials) |
-| Pinata | `'pinata'` | `''` (empty for first call, CID for subsequent) | `'DA_PINATA_JWT'` | Append-only — each upload returns a new CID |
+| Platform    | `platform` | Example `path`                                    | `keyRef`            | Semantics                                                               |
+| ----------- | ---------- | ------------------------------------------------- | ------------------- | ----------------------------------------------------------------------- |
+| HuggingFace | `'hf'`     | `'my-org/agent-workspace/sessions/session.jsonl'` | `'HF_TOKEN'`        | Overwrite — same path on each upload                                    |
+| GCS         | `'gcs'`    | `'sovereign-agent/convo_history.jsonl'`           | `'GCS_CREDENTIALS'` | Overwrite — object path within bucket (bucket specified in credentials) |
+| Pinata      | `'pinata'` | `''` (empty for first call, CID for subsequent)   | `'DA_PINATA_JWT'`   | Append-only — each upload returns a new CID                             |
 
 **HuggingFace path format:** `org/repo-name/path/to/file` — the first two segments (`org/repo-name`) are the HF dataset repository ID, the rest is the file path within it. Example: `'<your-hf-user>/<your-hf-repo>/sessions/session.jsonl'`.
 
@@ -1955,33 +2005,53 @@ Sovereign agents are **stateless by default** — each call gets a fresh contain
 **DA credentials go in `encryptedSecrets`.** Include the credential alongside the LLM API key:
 
 ```json
-{"ANTHROPIC_API_KEY":"sk-ant-...", "HF_TOKEN":"hf_..."}
+{ "ANTHROPIC_API_KEY": "sk-ant-...", "HF_TOKEN": "hf_..." }
 ```
 
 ```json
-{"ANTHROPIC_API_KEY":"sk-ant-...", "GCS_CREDENTIALS":"{\"service_account_json\":\"...\",\"bucket\":\"my-bucket\"}"}
+{
+  "ANTHROPIC_API_KEY": "sk-ant-...",
+  "GCS_CREDENTIALS": "{\"service_account_json\":\"...\",\"bucket\":\"my-bucket\"}"
+}
 ```
 
 ```json
-{"ANTHROPIC_API_KEY":"sk-ant-...", "DA_PINATA_JWT":"eyJ...", "DA_PINATA_GATEWAY":"https://my-gateway.mypinata.cloud"}
+{
+  "ANTHROPIC_API_KEY": "sk-ant-...",
+  "DA_PINATA_JWT": "eyJ...",
+  "DA_PINATA_GATEWAY": "https://my-gateway.mypinata.cloud"
+}
 ```
 
 **Example: HuggingFace-backed conversation memory + artifacts**
 
 ```typescript
 const encoded = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
-  executorAddress, 500n, '0x',
-  5n, 10000n, 'SOVEREIGN_AGENT_TASK',
-  consumerContract, deliverySelector, 3_000_000n, 1_000_000_000n, 100_000_000n,
-  CLIType.CRUSH, 'What did we talk about last time?',
-  `0x${encryptedSecrets.toString('hex')}`,
+  executorAddress,
+  500n,
+  "0x",
+  5n,
+  10000n,
+  "SOVEREIGN_AGENT_TASK",
+  consumerContract,
+  deliverySelector,
+  3_000_000n,
+  1_000_000_000n,
+  100_000_000n,
+  CLIType.CRUSH,
+  "What did we talk about last time?",
+  `0x${encryptedSecrets.toString("hex")}`,
 
-  ['hf', 'my-org/agent-workspace/sessions/session.jsonl', 'HF_TOKEN'],  // convoHistory
-  ['hf', 'my-org/agent-workspace/artifacts/', 'HF_TOKEN'],              // output
-  [],                                                                     // skills (empty)
-  ['hf', 'my-org/agent-workspace/prompts/system.md', 'HF_TOKEN'],       // systemPrompt
+  ["hf", "my-org/agent-workspace/sessions/session.jsonl", "HF_TOKEN"], // convoHistory
+  ["hf", "my-org/agent-workspace/artifacts/", "HF_TOKEN"], // output
+  [], // skills (empty)
+  ["hf", "my-org/agent-workspace/prompts/system.md", "HF_TOKEN"], // systemPrompt
 
-  'claude-sonnet-4-5-20250929', [], 50, 8192, '',
+  "claude-sonnet-4-5-20250929",
+  [],
+  50,
+  8192,
+  "",
 ]);
 ```
 
@@ -1990,22 +2060,27 @@ const encoded = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
 ```typescript
 // GCS credentials go in encryptedSecrets as a JSON blob
 const secretsJson = JSON.stringify({
-  ANTHROPIC_API_KEY: 'sk-ant-...',
+  ANTHROPIC_API_KEY: "sk-ant-...",
   GCS_CREDENTIALS: JSON.stringify({
-    service_account_json: '{"type":"service_account","project_id":"my-project",...}',
-    bucket: 'my-ritual-da-bucket',
+    service_account_json:
+      '{"type":"service_account","project_id":"my-project",...}',
+    bucket: "my-ritual-da-bucket",
   }),
 });
 
 const encoded = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
   // ... executor, ttl, delivery config ...
 
-  ['gcs', 'sovereign-agent/convo_history.jsonl', 'GCS_CREDENTIALS'],  // convoHistory
-  ['gcs', 'sovereign-agent/artifacts/', 'GCS_CREDENTIALS'],           // output
-  [],                                                                   // skills
-  ['', '', ''],                                                         // systemPrompt
+  ["gcs", "sovereign-agent/convo_history.jsonl", "GCS_CREDENTIALS"], // convoHistory
+  ["gcs", "sovereign-agent/artifacts/", "GCS_CREDENTIALS"], // output
+  [], // skills
+  ["", "", ""], // systemPrompt
 
-  'claude-sonnet-4-5-20250929', [], 50, 8192, '',
+  "claude-sonnet-4-5-20250929",
+  [],
+  50,
+  8192,
+  "",
 ]);
 ```
 
@@ -2016,12 +2091,16 @@ const encoded = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
 const firstCall = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
   // ... executor, ttl, delivery config ...
 
-  ['pinata', '', 'DA_PINATA_JWT'],          // convoHistory — empty for first call
-  ['pinata', '', 'DA_PINATA_JWT'],          // output — empty for first call
-  [],                                        // skills
-  ['', '', ''],                              // systemPrompt
+  ["pinata", "", "DA_PINATA_JWT"], // convoHistory — empty for first call
+  ["pinata", "", "DA_PINATA_JWT"], // output — empty for first call
+  [], // skills
+  ["", "", ""], // systemPrompt
 
-  'claude-sonnet-4-5-20250929', [], 50, 8192, '',
+  "claude-sonnet-4-5-20250929",
+  [],
+  50,
+  8192,
+  "",
 ]);
 
 // Phase 2 response includes:
@@ -2032,24 +2111,30 @@ const firstCall = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
 const secondCall = encodeAbiParameters(SOVEREIGN_AGENT_ABI, [
   // ... executor, ttl, delivery config ...
 
-  ['pinata', 'QmXyz...abc', 'DA_PINATA_JWT'],   // convoHistory — CID from first call
-  ['pinata', 'QmDef...123', 'DA_PINATA_JWT'],   // output — manifest CID from first call
+  ["pinata", "QmXyz...abc", "DA_PINATA_JWT"], // convoHistory — CID from first call
+  ["pinata", "QmDef...123", "DA_PINATA_JWT"], // output — manifest CID from first call
   [],
-  ['', '', ''],
+  ["", "", ""],
 
-  'claude-sonnet-4-5-20250929', [], 50, 8192, '',
+  "claude-sonnet-4-5-20250929",
+  [],
+  50,
+  8192,
+  "",
 ]);
 ```
 
 With these configurations, the agent remembers prior conversations and accumulates artifacts across calls.
 
 **How conversation memory works in practice:**
+
 1. If `convoHistory` is set, prior turns are loaded from DA.
 2. The agent runs with that prior context.
 3. The new turn is appended and persisted back to DA.
 4. The response includes an updated conversation reference.
 
 **How artifact persistence works in practice:**
+
 1. If `output` is set, prior artifacts are loaded before the run.
 2. The agent can read existing artifacts and create new ones.
 3. Updated artifacts are persisted back to DA after the run.
@@ -2064,6 +2149,7 @@ With these configurations, the agent remembers prior conversations and accumulat
 Every sovereign agent invocation derives a **secp256k1 keypair** from DKMS (Decentralized Key Management) inside the TEE. This keypair is bound to the **sender's Ethereum address**, not the executor — making agent state portable across executors.
 
 **What the DKMS keypair provides:**
+
 - **Private key** — stays inside the TEE, used to ECIES-decrypt DA content on download and ECIES-encrypt on upload
 - **Public key** — exposed via the DKMS precompile (0x081B), used by external parties to encrypt data TO the agent
 - **Ethereum address** — derived from the public key, used for the agent's on-chain transactions
@@ -2075,7 +2161,12 @@ Every sovereign agent invocation derives a **secp256k1 keypair** from DKMS (Dece
 ```typescript
 // The DKMS precompile returns (address, publicKey) for a given owner
 // Use the owner's address (sender) to derive the agent's keypair
-const dkmsResult = await callDkmsPrecompile(executorAddress, senderAddress, 0, 1);
+const dkmsResult = await callDkmsPrecompile(
+  executorAddress,
+  senderAddress,
+  0,
+  1,
+);
 const [agentAddress, agentDAPublicKey] = decodeDkmsResponse(dkmsResult);
 // agentDAPublicKey is 65 bytes (uncompressed secp256k1, 0x04 prefix)
 ```
@@ -2085,6 +2176,7 @@ const [agentAddress, agentDAPublicKey] = decodeDkmsResponse(dkmsResult);
 Skills and system prompt content can be ECIES-encrypted to the agent's DA public key. This keeps agent instructions private — only the TEE can read them.
 
 **How it works:**
+
 1. Get the agent's DA public key from the DKMS precompile (0x081B)
 2. ECIES-encrypt the skill/system prompt content with that public key
 3. Upload the ciphertext to HF/GCS/Pinata
@@ -2094,10 +2186,14 @@ The `dkms_encrypted:` prefix tells the executor: "this content is ECIES-encrypte
 
 ```typescript
 // Encrypt a system prompt to the agent's DA public key
-const systemPromptContent = Buffer.from('You are a DeFi portfolio agent...');
+const systemPromptContent = Buffer.from("You are a DeFi portfolio agent...");
 const encrypted = encrypt(agentDAPublicKey.slice(2), systemPromptContent);
 // Upload `encrypted` to HF, then reference with dkms_encrypted: prefix:
-const systemPrompt: StorageRef = ['hf', 'my-org/workspace/system.encrypted.md', 'dkms_encrypted:HF_TOKEN'];
+const systemPrompt: StorageRef = [
+  "hf",
+  "my-org/workspace/system.encrypted.md",
+  "dkms_encrypted:HF_TOKEN",
+];
 ```
 
 > **Two different encryption targets.** `encryptedSecrets` (field 13) is encrypted to the **executor's** public key (from `TEEServiceRegistry.node.publicKey`). `dkms_encrypted:` content is encrypted to the **agent's** DA public key (from DKMS precompile 0x081B). These are different keys for different purposes: the executor key protects API keys in transit, the agent key protects agent state at rest.
@@ -2113,13 +2209,17 @@ The `prompt` field (index 12) is a plaintext string in the on-chain calldata —
 ```typescript
 // The real prompt goes into encrypted secrets
 const secretsJson = JSON.stringify({
-  ANTHROPIC_API_KEY: 'sk-ant-...',
-  PRIVATE_PROMPT: 'Analyze my DeFi positions and suggest optimizations for maximum yield',
+  ANTHROPIC_API_KEY: "sk-ant-...",
+  PRIVATE_PROMPT:
+    "Analyze my DeFi positions and suggest optimizations for maximum yield",
 });
-const encryptedSecrets = encrypt(executorPublicKey.slice(2), Buffer.from(secretsJson));
+const encryptedSecrets = encrypt(
+  executorPublicKey.slice(2),
+  Buffer.from(secretsJson),
+);
 
 // The on-chain prompt is just the placeholder — visible to everyone but meaningless
-const prompt = 'PRIVATE_PROMPT';
+const prompt = "PRIVATE_PROMPT";
 ```
 
 The executor does `prompt.replaceAll("PRIVATE_PROMPT", decryptedSecrets["PRIVATE_PROMPT"])` before running the agent. Any key in `encryptedSecrets` that appears as a substring in the prompt is replaced. Multiple placeholders are supported.
@@ -2132,7 +2232,7 @@ The executor does `prompt.replaceAll("PRIVATE_PROMPT", decryptedSecrets["PRIVATE
 const [success, error, textResponse, updatedConvo, updatedOutput, artifacts] =
   decodeAbiParameters(
     parseAbiParameters(
-      'bool, string, string, (string,string,string), (string,string,string), (string,string,string)[]'
+      "bool, string, string, (string,string,string), (string,string,string), (string,string,string)[]",
     ),
     responseData,
   );
@@ -2167,11 +2267,14 @@ function onSovereignAgentResult(bytes32 jobId, bytes calldata result) external {
 
 ```typescript
 // Delivery selector in viem:
-const deliverySelector = toFunctionSelector('onSovereignAgentResult(bytes32,bytes)');
+const deliverySelector = toFunctionSelector(
+  "onSovereignAgentResult(bytes32,bytes)",
+);
 // => '0x8ca12055'
 ```
 
 Event emitted by your contract (define it yourself):
+
 ```solidity
 event SovereignAgentResultDelivered(bytes32 indexed jobId, bytes result);
 ```
@@ -2185,49 +2288,67 @@ event SovereignAgentResultDelivered(bytes32 indexed jobId, bytes result);
 An agent that remembers previous interactions and builds context over time.
 
 ```typescript
-import { encodeAbiParameters, parseAbiParameters, toFunctionSelector } from 'viem';
+import {
+  encodeAbiParameters,
+  parseAbiParameters,
+  toFunctionSelector,
+} from "viem";
 
-const LLMProvider = { ANTHROPIC: 0, OPENAI: 1, GEMINI: 2, XAI: 3, OPENROUTER: 4 } as const;
+const LLMProvider = {
+  ANTHROPIC: 0,
+  OPENAI: 1,
+  GEMINI: 2,
+  XAI: 3,
+  OPENROUTER: 4,
+} as const;
 
-const PERSISTENT_AGENT_ABI = parseAbiParameters([
-  'address, bytes[], uint256, bytes[], bytes,',
-  'uint64, address, bytes4, uint256, uint256, uint256, uint256,',
-  'uint8, string, string,',
-  '(string,string,string), (string,string,string),',
-  '(string,string,string), (string,string,string),',
-  '(string,string,string), (string,string,string),',
-  '(string,string,string), (string,string,string),',
-  'string, string, uint16',
-].join(''));
+const PERSISTENT_AGENT_ABI = parseAbiParameters(
+  [
+    "address, bytes[], uint256, bytes[], bytes,",
+    "uint64, address, bytes4, uint256, uint256, uint256, uint256,",
+    "uint8, string, string,",
+    "(string,string,string), (string,string,string),",
+    "(string,string,string), (string,string,string),",
+    "(string,string,string), (string,string,string),",
+    "(string,string,string), (string,string,string),",
+    "string, string, uint16",
+  ].join(""),
+);
 
 // Select from TEEServiceRegistry at runtime (do not hardcode).
-const executorAddress = '0x...selectedFromRegistry';
+const executorAddress = "0x...selectedFromRegistry";
 
 const encoded = encodeAbiParameters(PERSISTENT_AGENT_ABI, [
-  executorAddress, [], 300n, [], '0x',
-  600n,                                                     // maxSpawnBlock (~3.5 min at ~350ms blocks)
-  '0x...YourContract',
-  toFunctionSelector('onPersistentAgentResult(bytes32,bytes)'),
+  executorAddress,
+  [],
+  300n,
+  [],
+  "0x",
+  600n, // maxSpawnBlock (~3.5 min at ~350ms blocks)
+  "0x...YourContract",
+  toFunctionSelector("onPersistentAgentResult(bytes32,bytes)"),
   500_000n,
-  1_000_000_000n, 100_000_000n, 0n,
+  1_000_000_000n,
+  100_000_000n,
+  0n,
 
   LLMProvider.ANTHROPIC,
-  'claude-sonnet-4-5-20250929',
-  'ANTHROPIC_API_KEY',                                      // llmApiKeyRef in encrypted_secrets
+  "claude-sonnet-4-5-20250929",
+  "ANTHROPIC_API_KEY", // llmApiKeyRef in encrypted_secrets
 
   // Storage references (platform, path, keyRef)
-  ['hf', 'my-org/portfolio-agent/manifest.json', 'HF_TOKEN'], // daConfig
-  ['hf', 'my-org/portfolio-agent/SOUL.md', 'HF_TOKEN'],       // soulRef
-  ['', '', ''],                                                 // agentsRef
-  ['', '', ''],                                                 // userRef
-  ['hf', 'my-org/portfolio-agent/MEMORY.md', 'HF_TOKEN'],     // memoryRef
-  ['hf', 'my-org/portfolio-agent/IDENTITY.md', 'HF_TOKEN'],   // identityRef
-  ['hf', 'my-org/portfolio-agent/TOOLS.md', 'HF_TOKEN'],      // toolsRef
-  ['', '', ''],                                                 // openclawConfigRef
+  ["hf", "my-org/portfolio-agent/manifest.json", "HF_TOKEN"], // daConfig
+  ["hf", "my-org/portfolio-agent/SOUL.md", "HF_TOKEN"], // soulRef
+  ["", "", ""], // agentsRef
+  ["", "", ""], // userRef
+  ["hf", "my-org/portfolio-agent/MEMORY.md", "HF_TOKEN"], // memoryRef
+  ["hf", "my-org/portfolio-agent/IDENTITY.md", "HF_TOKEN"], // identityRef
+  ["hf", "my-org/portfolio-agent/TOOLS.md", "HF_TOKEN"], // toolsRef
+  ["", "", ""], // openclawConfigRef
 
-  '',                                                           // restoreFromCid
-  `{"ritual":"${process.env.RITUAL_RPC_URL}"}`,                 // rpcUrls — JSON-encoded; the agent container uses this to reach the chain
-  0,                                                            // agentRuntime (0=ZeroClaw)
+  "", // restoreFromCid
+  `{"ritual":"${process.env.RITUAL_RPC_URL}"}`, // rpcUrls — JSON-encoded; the agent container uses this to reach the chain
+  0, // agentRuntime (0=ZeroClaw)
 ]);
 ```
 
@@ -2265,49 +2386,70 @@ function scheduledSovereignTask() external {
 Pass encrypted API keys so the agent can authenticate with external services. Follow `ritual-dapp-secrets` for the complete ECIES encryption workflow.
 
 ```typescript
-import { createPublicClient, http, defineChain, encodeAbiParameters, parseAbiParameters } from 'viem';
-import { encrypt, ECIES_CONFIG } from 'eciesjs';
+import {
+  createPublicClient,
+  http,
+  defineChain,
+  encodeAbiParameters,
+  parseAbiParameters,
+} from "viem";
+import { encrypt, ECIES_CONFIG } from "eciesjs";
 
 ECIES_CONFIG.symmetricNonceLength = 12; // see ritual-dapp-secrets
 
 const ritualChain = defineChain({
   id: 1979,
-  name: 'Ritual',
-  nativeCurrency: { name: 'RITUAL', symbol: 'RITUAL', decimals: 18 },
+  name: "Ritual",
+  nativeCurrency: { name: "RITUAL", symbol: "RITUAL", decimals: 18 },
   rpcUrls: { default: { http: [process.env.RITUAL_RPC_URL!] } },
 });
-const publicClient = createPublicClient({ chain: ritualChain, transport: http() });
+const publicClient = createPublicClient({
+  chain: ritualChain,
+  transport: http(),
+});
 
-const TEE_SERVICE_REGISTRY = '0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F' as const;
+const TEE_SERVICE_REGISTRY =
+  "0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F" as const;
 const CAPABILITY_HTTP_CALL = 0;
 
 // Get executor's public key from on-chain registry
 const services = await publicClient.readContract({
   address: TEE_SERVICE_REGISTRY,
-  abi: [{
-    name: 'getServicesByCapability',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'capability', type: 'uint8' }, { name: 'checkValidity', type: 'bool' }],
-    outputs: [{
-      name: '',
-      type: 'tuple[]',
-      components: [
-        { name: 'node', type: 'tuple', components: [
-          { name: 'paymentAddress', type: 'address' },
-          { name: 'teeAddress', type: 'address' },
-          { name: 'teeType', type: 'uint8' },
-          { name: 'publicKey', type: 'bytes' },
-          { name: 'endpoint', type: 'string' },
-          { name: 'certPubKeyHash', type: 'bytes32' },
-          { name: 'capability', type: 'uint8' },
-        ]},
-        { name: 'isValid', type: 'bool' },
-        { name: 'workloadId', type: 'bytes32' },
+  abi: [
+    {
+      name: "getServicesByCapability",
+      type: "function",
+      stateMutability: "view",
+      inputs: [
+        { name: "capability", type: "uint8" },
+        { name: "checkValidity", type: "bool" },
       ],
-    }],
-  }] as const,
-  functionName: 'getServicesByCapability',
+      outputs: [
+        {
+          name: "",
+          type: "tuple[]",
+          components: [
+            {
+              name: "node",
+              type: "tuple",
+              components: [
+                { name: "paymentAddress", type: "address" },
+                { name: "teeAddress", type: "address" },
+                { name: "teeType", type: "uint8" },
+                { name: "publicKey", type: "bytes" },
+                { name: "endpoint", type: "string" },
+                { name: "certPubKeyHash", type: "bytes32" },
+                { name: "capability", type: "uint8" },
+              ],
+            },
+            { name: "isValid", type: "bool" },
+            { name: "workloadId", type: "bytes32" },
+          ],
+        },
+      ],
+    },
+  ] as const,
+  functionName: "getServicesByCapability",
   args: [CAPABILITY_HTTP_CALL, true],
 });
 
@@ -2320,7 +2462,7 @@ const secretsJson = JSON.stringify({
   HF_TOKEN: process.env.HF_TOKEN!,
 });
 const encryptedSecrets = [
-  `0x${encrypt(executorPubKey.slice(2), Buffer.from(secretsJson)).toString('hex')}` as `0x${string}`,
+  `0x${encrypt(executorPubKey.slice(2), Buffer.from(secretsJson)).toString("hex")}` as `0x${string}`,
 ];
 
 // Use encryptedSecrets in your Persistent Agent or Sovereign Agent encoding
@@ -2333,45 +2475,60 @@ const encryptedSecrets = [
 Both agent precompiles use HTTP_CALL capability (0) for executor selection:
 
 ```typescript
-import { createPublicClient, http, defineChain } from 'viem';
+import { createPublicClient, http, defineChain } from "viem";
 
 const ritualChain = defineChain({
   id: 1979,
-  name: 'Ritual',
-  nativeCurrency: { name: 'RITUAL', symbol: 'RITUAL', decimals: 18 },
+  name: "Ritual",
+  nativeCurrency: { name: "RITUAL", symbol: "RITUAL", decimals: 18 },
   rpcUrls: { default: { http: [process.env.RITUAL_RPC_URL!] } },
 });
-const publicClient = createPublicClient({ chain: ritualChain, transport: http() });
+const publicClient = createPublicClient({
+  chain: ritualChain,
+  transport: http(),
+});
 
-const TEE_SERVICE_REGISTRY = '0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F' as const;
+const TEE_SERVICE_REGISTRY =
+  "0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F" as const;
 const CAPABILITY_HTTP_CALL = 0;
 
 const services = await publicClient.readContract({
   address: TEE_SERVICE_REGISTRY,
-  abi: [{
-    name: 'getServicesByCapability',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'capability', type: 'uint8' }, { name: 'checkValidity', type: 'bool' }],
-    outputs: [{
-      name: '',
-      type: 'tuple[]',
-      components: [
-        { name: 'node', type: 'tuple', components: [
-          { name: 'paymentAddress', type: 'address' },
-          { name: 'teeAddress', type: 'address' },
-          { name: 'teeType', type: 'uint8' },
-          { name: 'publicKey', type: 'bytes' },
-          { name: 'endpoint', type: 'string' },
-          { name: 'certPubKeyHash', type: 'bytes32' },
-          { name: 'capability', type: 'uint8' },
-        ]},
-        { name: 'isValid', type: 'bool' },
-        { name: 'workloadId', type: 'bytes32' },
+  abi: [
+    {
+      name: "getServicesByCapability",
+      type: "function",
+      stateMutability: "view",
+      inputs: [
+        { name: "capability", type: "uint8" },
+        { name: "checkValidity", type: "bool" },
       ],
-    }],
-  }] as const,
-  functionName: 'getServicesByCapability',
+      outputs: [
+        {
+          name: "",
+          type: "tuple[]",
+          components: [
+            {
+              name: "node",
+              type: "tuple",
+              components: [
+                { name: "paymentAddress", type: "address" },
+                { name: "teeAddress", type: "address" },
+                { name: "teeType", type: "uint8" },
+                { name: "publicKey", type: "bytes" },
+                { name: "endpoint", type: "string" },
+                { name: "certPubKeyHash", type: "bytes32" },
+                { name: "capability", type: "uint8" },
+              ],
+            },
+            { name: "isValid", type: "bool" },
+            { name: "workloadId", type: "bytes32" },
+          ],
+        },
+      ],
+    },
+  ] as const,
+  functionName: "getServicesByCapability",
   args: [CAPABILITY_HTTP_CALL, true],
 });
 
@@ -2385,33 +2542,45 @@ const executor = services[0];
 Before submitting an agent job, verify the executor is available:
 
 ```typescript
-import type { PublicClient } from 'viem';
+import type { PublicClient } from "viem";
 
-const TEE_SERVICE_REGISTRY = '0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F' as const;
+const TEE_SERVICE_REGISTRY =
+  "0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F" as const;
 
-const teeServiceRegistryAbi = [{
-  name: 'getServicesByCapability',
-  type: 'function',
-  stateMutability: 'view',
-  inputs: [{ name: 'capability', type: 'uint8' }, { name: 'checkValidity', type: 'bool' }],
-  outputs: [{
-    name: '',
-    type: 'tuple[]',
-    components: [
-      { name: 'node', type: 'tuple', components: [
-        { name: 'paymentAddress', type: 'address' },
-        { name: 'teeAddress', type: 'address' },
-        { name: 'teeType', type: 'uint8' },
-        { name: 'publicKey', type: 'bytes' },
-        { name: 'endpoint', type: 'string' },
-        { name: 'certPubKeyHash', type: 'bytes32' },
-        { name: 'capability', type: 'uint8' },
-      ]},
-      { name: 'isValid', type: 'bool' },
-      { name: 'workloadId', type: 'bytes32' },
+const teeServiceRegistryAbi = [
+  {
+    name: "getServicesByCapability",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "capability", type: "uint8" },
+      { name: "checkValidity", type: "bool" },
     ],
-  }],
-}] as const;
+    outputs: [
+      {
+        name: "",
+        type: "tuple[]",
+        components: [
+          {
+            name: "node",
+            type: "tuple",
+            components: [
+              { name: "paymentAddress", type: "address" },
+              { name: "teeAddress", type: "address" },
+              { name: "teeType", type: "uint8" },
+              { name: "publicKey", type: "bytes" },
+              { name: "endpoint", type: "string" },
+              { name: "certPubKeyHash", type: "bytes32" },
+              { name: "capability", type: "uint8" },
+            ],
+          },
+          { name: "isValid", type: "bool" },
+          { name: "workloadId", type: "bytes32" },
+        ],
+      },
+    ],
+  },
+] as const;
 
 async function findHealthyExecutor(
   publicClient: PublicClient,
@@ -2420,7 +2589,7 @@ async function findHealthyExecutor(
   const services = await publicClient.readContract({
     address: TEE_SERVICE_REGISTRY,
     abi: teeServiceRegistryAbi,
-    functionName: 'getServicesByCapability',
+    functionName: "getServicesByCapability",
     args: [capability, true],
   });
 
@@ -2435,7 +2604,7 @@ async function findHealthyExecutor(
 const CAPABILITY_HTTP_CALL = 0;
 const executor = await findHealthyExecutor(publicClient, CAPABILITY_HTTP_CALL);
 if (!executor) {
-  throw new Error('No healthy executor available for agent calls');
+  throw new Error("No healthy executor available for agent calls");
 }
 ```
 
@@ -2445,42 +2614,42 @@ if (!executor) {
 
 ### Persistent Agent (0x0820) Suggested Starting Values
 
-| Field | Default |
-|-------|---------|
-| `maxSpawnBlock` | `600` (~3.5 min at ~350ms blocks) |
-| `deliveryGasLimit` | `100,000` |
-| `deliveryMaxFeePerGas` | `1,000,000,000` (1 gwei) |
-| `deliveryMaxPriorityFeePerGas` | `100,000,000` (0.1 gwei) |
-| `provider` | `ANTHROPIC` (0) in example scripts |
-| `model` | Set explicitly to exact provider model id (no protocol default) |
-| `agentRuntime` | `ZEROCLAW` (0) |
+| Field                          | Default                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `maxSpawnBlock`                | `600` (~3.5 min at ~350ms blocks)                               |
+| `deliveryGasLimit`             | `100,000`                                                       |
+| `deliveryMaxFeePerGas`         | `1,000,000,000` (1 gwei)                                        |
+| `deliveryMaxPriorityFeePerGas` | `100,000,000` (0.1 gwei)                                        |
+| `provider`                     | `ANTHROPIC` (0) in example scripts                              |
+| `model`                        | Set explicitly to exact provider model id (no protocol default) |
+| `agentRuntime`                 | `ZEROCLAW` (0)                                                  |
 
 ### Sovereign Agent (0x080C) Suggested Starting Values
 
-| Field | Default |
-|-------|---------|
-| `pollIntervalBlocks` | `5` |
-| `maxPollBlock` | `6000` |
-| `deliveryGasLimit` | `3,000,000` |
-| `deliveryMaxFeePerGas` | `1,000,000,000` (1 gwei) |
-| `deliveryMaxPriorityFeePerGas` | `100,000,000` (0.1 gwei) |
-| `cliType` | `CRUSH` (5) — recommended for multi-provider |
-| `model` | Set explicitly to exact provider model id (no protocol default) |
-| `maxTurns` | `50` |
-| `maxTokens` | `8192` |
-| `ttl` | `500` blocks |
+| Field                          | Default                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `pollIntervalBlocks`           | `5`                                                             |
+| `maxPollBlock`                 | `6000`                                                          |
+| `deliveryGasLimit`             | `3,000,000`                                                     |
+| `deliveryMaxFeePerGas`         | `1,000,000,000` (1 gwei)                                        |
+| `deliveryMaxPriorityFeePerGas` | `100,000,000` (0.1 gwei)                                        |
+| `cliType`                      | `CRUSH` (5) — recommended for multi-provider                    |
+| `model`                        | Set explicitly to exact provider model id (no protocol default) |
+| `maxTurns`                     | `50`                                                            |
+| `maxTokens`                    | `8192`                                                          |
+| `ttl`                          | `500` blocks                                                    |
 
 Before submitting, verify your chosen model exists for the selected provider and key scope (provider-side model preflight), then pass that exact model identifier in the request.
 
 ### Sovereign Agent Provider × Harness Matrix
 
-| Provider | Claude Code (0) | Crush (5) | ZeroClaw (6) |
-|----------|:---:|:---:|:---:|
-| Anthropic (`claude-sonnet-4-5-20250929`, etc.) | ✅ | ✅ | ✅ |
-| OpenAI (`gpt-4o-mini`, etc.) | ❌ | ✅ | ✅ |
-| Gemini (`gemini-2.5-flash`, etc.) | ❌ | ✅ | ✅ |
-| OpenRouter (`anthropic/claude-3.5-sonnet`, etc.) | ❌ | ✅ | ✅ |
-| Ritual (`{"LLM_PROVIDER":"ritual"}`) | ❌ | ✅ | ✅ |
+| Provider                                         | Claude Code (0) | Crush (5) | ZeroClaw (6) |
+| ------------------------------------------------ | :-------------: | :-------: | :----------: |
+| Anthropic (`claude-sonnet-4-5-20250929`, etc.)   |       ✅        |    ✅     |      ✅      |
+| OpenAI (`gpt-4o-mini`, etc.)                     |       ❌        |    ✅     |      ✅      |
+| Gemini (`gemini-2.5-flash`, etc.)                |       ❌        |    ✅     |      ✅      |
+| OpenRouter (`anthropic/claude-3.5-sonnet`, etc.) |       ❌        |    ✅     |      ✅      |
+| Ritual (`{"LLM_PROVIDER":"ritual"}`)             |       ❌        |    ✅     |      ✅      |
 
 Set provider via `"LLM_PROVIDER"` in encrypted secrets. For Ritual: `{"LLM_PROVIDER":"ritual"}` (no API key needed).
 Ritual provider is sovereign-only and is unavailable in the Persistent Agent provider enum.
@@ -2497,13 +2666,19 @@ import {
   createWalletClient,
   defineChain,
   http,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { encrypt, ECIES_CONFIG } from 'eciesjs';
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { encrypt, ECIES_CONFIG } from "eciesjs";
 
 ECIES_CONFIG.symmetricNonceLength = 12; // see ritual-dapp-secrets
 
-const LLMProvider = { ANTHROPIC: 0, OPENAI: 1, GEMINI: 2, XAI: 3, OPENROUTER: 4 } as const;
+const LLMProvider = {
+  ANTHROPIC: 0,
+  OPENAI: 1,
+  GEMINI: 2,
+  XAI: 3,
+  OPENROUTER: 4,
+} as const;
 const CLIType = { CLAUDE_CODE: 0, CRUSH: 5, ZEROCLAW: 6 } as const;
 ```
 
@@ -2511,29 +2686,29 @@ const CLIType = { CLAUDE_CODE: 0, CRUSH: 5, ZEROCLAW: 6 } as const;
 
 For canonical system-contract addresses, ABI surfaces, and callback security patterns, see `ritual-dapp-contracts`.
 
-| Contract | Address |
-|----------|---------|
-| TEEServiceRegistry | `0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F` |
-| RitualWallet | `0x532F0dF0896F353d8C3DD8cc134e8129DA2a3948` |
-| AsyncJobTracker | `0xC069FFCa0389f44eCA2C626e55491b0ab045AEF5` |
-| AsyncDelivery | `0x5A16214fF555848411544b005f7Ac063742f39F6` |
-| Scheduler | `0x56e776BAE2DD60664b69Bd5F865F1180ffB7D58B` |
+| Contract                   | Address                                      |
+| -------------------------- | -------------------------------------------- |
+| TEEServiceRegistry         | `0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F` |
+| RitualWallet               | `0x532F0dF0896F353d8C3DD8cc134e8129DA2a3948` |
+| AsyncJobTracker            | `0xC069FFCa0389f44eCA2C626e55491b0ab045AEF5` |
+| AsyncDelivery              | `0x5A16214fF555848411544b005f7Ac063742f39F6` |
+| Scheduler                  | `0x56e776BAE2DD60664b69Bd5F865F1180ffB7D58B` |
 | Sovereign Agent Precompile | `0x000000000000000000000000000000000000080C` |
 
 ### Troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `cipher: message authentication failed` | ECIES nonce length mismatch | See `ritual-dapp-secrets` — nonce must be 12, not the library default of 16. |
-| Commitment mined, `hasPendingJobForSender` = true, but Phase 1 never settles. No errors anywhere. | ECIES encryption config wrong (nonce length or cipher). Executor cannot decrypt and silently drops the job. | Fix encryption per `ritual-dapp-secrets`. Use a fresh sender address to unblock. See "Debugging Silent Failures" below. |
-| Tx accepted but never mined (silent drop) | Sender has a pending async job | Wait for previous job to complete or use a different sender address. Check: `AsyncJobTracker.hasPendingJobForSender(sender)` |
-| `insufficient wallet balance` | RitualWallet not funded | Deposit RITUAL: `RitualWallet.deposit{value: X}(lockDuration)`. Lock must extend past `currentBlock + ttl`. |
-| `invalid async payload: SovereignAgentRequest: Field extraction failed` | ABI encoding mismatch | Verify StorageRef uses `(string,string,string)` not `(string,string,bytes)`. Verify all 23 fields are present. |
-| Phase 2 never arrives | Executor unreachable or TTL expired | Check `TEEServiceRegistry.getServicesByCapability(0, true)` returns valid executors. Increase `ttl`. |
-| `NonEmptyPaddingBytes: Boolean must be either 0x0 or 0x1` | Decoding event data directly instead of unwrapping outer `bytes` | Event data is ABI-encoded `bytes`. Decode outer `bytes` first, then decode inner response tuple. |
-| Empty text response from Claude Code | Claude Code version outdated in executor image | Not a client issue — executor needs updated sovereign-agent container image. |
-| `sovereign_agent_type N is not currently supported` | Invalid or unsupported `cliType` value | Use 0 (ClaudeCode), 5 (Crush), or 6 (ZeroClaw). Values 1-4 are unavailable in the supported executor path. |
-| `waitForTransactionReceipt` hangs after submitting an agent call | Phase 1 hasn't settled (usually because executor can't decrypt). Receipt won't appear until settlement. | Don't block on receipt for long-running async precompile txs. Use `cast send --async` or `sendTransaction` and poll for the Phase 2 event by `jobId` topic instead. |
+| Symptom                                                                                           | Cause                                                                                                       | Fix                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cipher: message authentication failed`                                                           | ECIES nonce length mismatch                                                                                 | See `ritual-dapp-secrets` — nonce must be 12, not the library default of 16.                                                                                        |
+| Commitment mined, `hasPendingJobForSender` = true, but Phase 1 never settles. No errors anywhere. | ECIES encryption config wrong (nonce length or cipher). Executor cannot decrypt and silently drops the job. | Fix encryption per `ritual-dapp-secrets`. Use a fresh sender address to unblock. See "Debugging Silent Failures" below.                                             |
+| Tx accepted but never mined (silent drop)                                                         | Sender has a pending async job                                                                              | Wait for previous job to complete or use a different sender address. Check: `AsyncJobTracker.hasPendingJobForSender(sender)`                                        |
+| `insufficient wallet balance`                                                                     | RitualWallet not funded                                                                                     | Deposit RITUAL: `RitualWallet.deposit{value: X}(lockDuration)`. Lock must extend past `currentBlock + ttl`.                                                         |
+| `invalid async payload: SovereignAgentRequest: Field extraction failed`                           | ABI encoding mismatch                                                                                       | Verify StorageRef uses `(string,string,string)` not `(string,string,bytes)`. Verify all 23 fields are present.                                                      |
+| Phase 2 never arrives                                                                             | Executor unreachable or TTL expired                                                                         | Check `TEEServiceRegistry.getServicesByCapability(0, true)` returns valid executors. Increase `ttl`.                                                                |
+| `NonEmptyPaddingBytes: Boolean must be either 0x0 or 0x1`                                         | Decoding event data directly instead of unwrapping outer `bytes`                                            | Event data is ABI-encoded `bytes`. Decode outer `bytes` first, then decode inner response tuple.                                                                    |
+| Empty text response from Claude Code                                                              | Claude Code version outdated in executor image                                                              | Not a client issue — executor needs updated sovereign-agent container image.                                                                                        |
+| `sovereign_agent_type N is not currently supported`                                               | Invalid or unsupported `cliType` value                                                                      | Use 0 (ClaudeCode), 5 (Crush), or 6 (ZeroClaw). Values 1-4 are unavailable in the supported executor path.                                                          |
+| `waitForTransactionReceipt` hangs after submitting an agent call                                  | Phase 1 hasn't settled (usually because executor can't decrypt). Receipt won't appear until settlement.     | Don't block on receipt for long-running async precompile txs. Use `cast send --async` or `sendTransaction` and poll for the Phase 2 event by `jobId` topic instead. |
 
 ### Debugging Silent Failures
 

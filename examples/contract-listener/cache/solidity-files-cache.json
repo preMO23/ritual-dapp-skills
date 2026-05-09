@@ -1,0 +1,77 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\Users\\Brown\\Documents\\GitHub\\ritual-dapp-skills\\examples\\contract-listener\\contracts\\ShadowLensProtocol.sol": {
+      "lastModificationDate": 1778280450800,
+      "contentHash": "f96fa2f24e36ccbfbc05bbb2df800729",
+      "sourceName": "contracts/ShadowLensProtocol.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ShadowLensProtocol"
+      ]
+    },
+    "C:\\Users\\Brown\\Documents\\GitHub\\ritual-dapp-skills\\examples\\contract-listener\\contracts\\ShadowLensAgentConsumer.sol": {
+      "lastModificationDate": 1778307392339,
+      "contentHash": "a5528c121615f68996689f510af6a00c",
+      "sourceName": "contracts/ShadowLensAgentConsumer.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "ShadowLensAgentConsumer"
+      ]
+    }
+  }
+}

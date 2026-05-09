@@ -1,0 +1,21 @@
+{
+  "name": "contract-listener",
+  "version": "1.0.0",
+  "description": "Off-chain listener for ShadowLensProtocol contract",
+  "type": "module",
+  "main": "listener.js",
+  "scripts": {
+    "start": "node listener.js",
+    "deploy": "hardhat run scripts/deploy.cjs --network localhost",
+    "request": "hardhat run scripts/test-request.cjs --network localhost",
+    "test-local": "npm run deploy && npm start"
+  },
+  "dependencies": {
+    "ethers": "^6.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  }
+}
